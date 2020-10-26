@@ -17,8 +17,9 @@ fn main() {
 
     write!(
         stdout,
-        "{}{}> start{}{}",
+        "{}{}{}> start{}{}",
         termion::clear::All,
+        termion::cursor::Hide,
         termion::cursor::Goto(1, 1),
         termion::cursor::Goto(x, y),
         s
@@ -32,7 +33,7 @@ fn main() {
 
         match b {
             b'q' => {
-                return;
+                break;
             }
             b'h' => {
                 write!(stdout, "{} ", termion::cursor::Goto(x, y)).unwrap();
@@ -69,4 +70,7 @@ fn main() {
 
         stdout.flush().unwrap();
     }
+
+    write!(stdout, "{}", termion::cursor::Show).unwrap();
+    stdout.flush().unwrap();
 }
