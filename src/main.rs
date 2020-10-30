@@ -4,7 +4,33 @@ extern crate termion;
 use std::io::{stdin, stdout, Read, Write};
 use termion::raw::IntoRawMode;
 
+struct Dungeon {
+    pub floor: usize,
+    pub turn: usize,
+
+    pub player: Player,
+}
+
+struct Player {
+    pub level: i32,
+    pub hp: i32,
+    pub power: i32,
+}
+
 fn main() {
+    let player = Player {
+        level: 1,
+        hp: 15,
+        power: 8,
+    };
+
+    let mut dungeon = Dungeon {
+        floor: 1,
+        turn: 0,
+
+        player: player,
+    };
+
     let stdout = stdout();
     let mut stdout = stdout.lock().into_raw_mode().unwrap();
     let stdin = stdin();
