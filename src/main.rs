@@ -54,7 +54,7 @@ fn main() {
     stdout.flush().unwrap();
 
     let mut bytes = stdin.bytes();
-    let mut status = "";
+    let mut status = String::from("");
     loop {
         let b = bytes.next().unwrap().unwrap();
 
@@ -76,14 +76,7 @@ fn main() {
                 x += 1;
             }
             a => {
-                write!(
-                    stdout,
-                    "{}{}> {}",
-                    termion::clear::All,
-                    termion::cursor::Goto(1, 1),
-                    a
-                )
-                .unwrap();
+                status = format!("{}", a);
             }
         }
 
