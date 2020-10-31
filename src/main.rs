@@ -54,32 +54,26 @@ fn main() {
     stdout.flush().unwrap();
 
     let mut bytes = stdin.bytes();
+    let mut status = "";
     loop {
         let b = bytes.next().unwrap().unwrap();
 
+        write!(stdout, "{}", termion::clear::All).unwrap();
         match b {
             b'q' => {
                 break;
             }
             b'h' => {
-                write!(stdout, "{} ", termion::cursor::Goto(x, y)).unwrap();
                 x -= 1;
-                write!(stdout, "{}{}", termion::cursor::Goto(x, y), s).unwrap();
             }
             b'j' => {
-                write!(stdout, "{} ", termion::cursor::Goto(x, y)).unwrap();
                 y += 1;
-                write!(stdout, "{}{}", termion::cursor::Goto(x, y), s).unwrap();
             }
             b'k' => {
-                write!(stdout, "{} ", termion::cursor::Goto(x, y)).unwrap();
                 y -= 1;
-                write!(stdout, "{}{}", termion::cursor::Goto(x, y), s).unwrap();
             }
             b'l' => {
-                write!(stdout, "{} ", termion::cursor::Goto(x, y)).unwrap();
                 x += 1;
-                write!(stdout, "{}{}", termion::cursor::Goto(x, y), s).unwrap();
             }
             a => {
                 write!(
@@ -90,10 +84,11 @@ fn main() {
                     a
                 )
                 .unwrap();
-                write!(stdout, "{}{}", termion::cursor::Goto(x, y), s).unwrap();
             }
         }
 
+        write!(stdout, "{}> {}", termion::cursor::Goto(1, 1), status).unwrap();
+        write!(stdout, "{}{}", termion::cursor::Goto(x, y), s).unwrap();
         stdout.flush().unwrap();
     }
 
