@@ -17,7 +17,7 @@ struct Player {
     pub power: i32,
 }
 
-macro_rules! writeGame {
+macro_rules! write_game {
     ($stdout:expr, $x:expr, $y:expr, $status:expr) =>{
         let player = "@";
         write!($stdout, "{}", termion::clear::All).unwrap();
@@ -54,7 +54,7 @@ fn main() {
     write!(stdout, "{}", termion::cursor::Hide).unwrap();
     stdout.flush().unwrap();
 
-    writeGame!(stdout, x, y, status);
+    write_game!(stdout, x, y, status);
 
     let mut bytes = stdin.bytes();
     loop {
@@ -81,7 +81,7 @@ fn main() {
             }
         }
 
-        writeGame!(stdout, x, y, status);
+        write_game!(stdout, x, y, status);
     }
 
     write!(stdout, "{}", termion::cursor::Show).unwrap();
