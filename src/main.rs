@@ -17,6 +17,16 @@ struct Player {
     pub power: i32,
 }
 
+macro_rules! writeGame {
+    ($stdout:expr, $x:expr, $y:expr, $status:expr) =>{
+        let player = "@";
+        write!($stdout, "{}", termion::clear::All).unwrap();
+        write!($stdout, "{}> {}", termion::cursor::Goto(1, 1), $status).unwrap();
+        write!($stdout, "{}{}", termion::cursor::Goto($x, $y), player).unwrap();
+        $stdout.flush().unwrap();
+    }
+}
+
 fn main() {
     let player = Player {
         level: 1,
@@ -36,29 +46,20 @@ fn main() {
     let stdin = stdin();
     let stdin = stdin.lock();
 
-    let s = "@";
-
     let mut x = 20;
     let mut y = 10;
 
-    write!(
-        stdout,
-        "{}{}{}> start{}{}",
-        termion::clear::All,
-        termion::cursor::Hide,
-        termion::cursor::Goto(1, 1),
-        termion::cursor::Goto(x, y),
-        s
-    )
-    .unwrap();
+    let mut status = String::from("");
+
+    write!(stdout, "{}", termion::cursor::Hide).unwrap();
     stdout.flush().unwrap();
 
+    writeGame!(stdout, x, y, status);
+
     let mut bytes = stdin.bytes();
-    let mut status = String::from("");
     loop {
         let b = bytes.next().unwrap().unwrap();
 
-        write!(stdout, "{}", termion::clear::All).unwrap();
         match b {
             b'q' => {
                 break;
@@ -80,9 +81,7 @@ fn main() {
             }
         }
 
-        write!(stdout, "{}> {}", termion::cursor::Goto(1, 1), status).unwrap();
-        write!(stdout, "{}{}", termion::cursor::Goto(x, y), s).unwrap();
-        stdout.flush().unwrap();
+        writeGame!(stdout, x, y, status);
     }
 
     write!(stdout, "{}", termion::cursor::Show).unwrap();
