@@ -4,41 +4,51 @@ extern crate termion;
 use std::io::{stdin, stdout, Read, Write};
 use termion::raw::IntoRawMode;
 
+
 struct Dungeon {
     pub floor: usize,
     pub turn: usize,
 
     pub player: Player,
+    pub status: String,
 }
 
 struct Player {
     pub level: i32,
     pub hp: i32,
     pub power: i32,
+
+    pub x: u16,
+    pub y: u16,
 }
 
 macro_rules! write_game {
-    ($stdout:expr, $x:expr, $y:expr, $status:expr) =>{
+    ($stdout:expr, $dungeon:expr) =>{
         let player = "@";
         write!($stdout, "{}", termion::clear::All).unwrap();
-        write!($stdout, "{}> {}", termion::cursor::Goto(1, 1), $status).unwrap();
-        write!($stdout, "{}{}", termion::cursor::Goto($x, $y), player).unwrap();
+        write!($stdout, "{}> {}", termion::cursor::Goto(1, 1), $dungeon.status).unwrap();
+        write!($stdout, "{}{}", termion::cursor::Goto($dungeon.player.x, $dungeon.player.y), player).unwrap();
         $stdout.flush().unwrap();
     }
 }
+
 
 fn main() {
     let player = Player {
         level: 1,
         hp: 15,
         power: 8,
+
+        x: 20,
+        y: 10,
     };
 
     let mut dungeon = Dungeon {
         floor: 1,
         turn: 0,
 
-        player: player,
+        player,
+        status: String::from("start"),
     };
 
     let stdout = stdout();
@@ -46,15 +56,10 @@ fn main() {
     let stdin = stdin();
     let stdin = stdin.lock();
 
-    let mut x = 20;
-    let mut y = 10;
-
-    let mut status = String::from("");
-
     write!(stdout, "{}", termion::cursor::Hide).unwrap();
     stdout.flush().unwrap();
 
-    write_game!(stdout, x, y, status);
+    write_game!(stdout, dungeon);
 
     let mut bytes = stdin.bytes();
     loop {
@@ -65,23 +70,23 @@ fn main() {
                 break;
             }
             b'h' => {
-                x -= 1;
+                dungeon.player.x -= 1;
             }
             b'j' => {
-                y += 1;
+                dungeon.player.y += 1;
             }
             b'k' => {
-                y -= 1;
+                dungeon.player.y -= 1;
             }
             b'l' => {
-                x += 1;
+                dungeon.player.x += 1;
             }
             a => {
-                status = format!("{}", a);
+                dungeon.status = format!("{}", a);
             }
         }
 
-        write_game!(stdout, x, y, status);
+        write_game!(stdout, dungeon);
     }
 
     write!(stdout, "{}", termion::cursor::Show).unwrap();
