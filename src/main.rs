@@ -11,6 +11,12 @@ struct Dungeon {
 
     pub player: Player,
     pub status: String,
+
+    pub map: Map,
+}
+
+struct Map {
+    pub cells: Vec<String>,
 }
 
 struct Player {
@@ -25,8 +31,15 @@ struct Player {
 macro_rules! write_game {
     ($stdout:expr, $dungeon:expr) =>{
         let player = "@";
+
         write!($stdout, "{}", termion::clear::All).unwrap();
+
         write!($stdout, "{}> {}", termion::cursor::Goto(1, 1), $dungeon.status).unwrap();
+
+        for (i, val) in $dungeon.map.cells.iter().enumerate() {
+            write!($stdout, "{}{}", termion::cursor::Goto(1, 2 + i as u16), val).unwrap();
+        }
+
         write!($stdout, "{}{}", termion::cursor::Goto($dungeon.player.x, $dungeon.player.y), player).unwrap();
         $stdout.flush().unwrap();
     }
@@ -43,12 +56,34 @@ fn main() {
         y: 10,
     };
 
+    let map = Map {
+        cells: vec![
+            String::from("##########################################################"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("#........................................................#"),
+            String::from("##########################################################"),
+        ],
+    };
+
     let mut dungeon = Dungeon {
         floor: 1,
         turn: 0,
 
         player,
         status: String::from("start"),
+
+        map,
     };
 
     let stdout = stdout();
