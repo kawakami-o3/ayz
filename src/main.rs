@@ -20,13 +20,17 @@ struct Map {
     pub cells: Vec<String>,
 }
 
+struct Position {
+    pub x: u16,
+    pub y: u16,
+}
+
 struct Player {
     pub level: i32,
     pub hp: i32,
     pub power: i32,
 
-    pub x: u16,
-    pub y: u16,
+    pub pos: Position,
 }
 
 macro_rules! write_game {
@@ -35,19 +39,19 @@ macro_rules! write_game {
 
         write!($stdout, "{}", termion::clear::All).unwrap();
 
-        write!($stdout, "{}> p({}, {}). {}", termion::cursor::Goto(1, 1), $dungeon.player.x, $dungeon.player.y, $dungeon.status).unwrap();
+        write!($stdout, "{}> p({}, {}). {}", termion::cursor::Goto(1, 1), $dungeon.player.pos.x, $dungeon.player.pos.y, $dungeon.status).unwrap();
 
         for (i, val) in $dungeon.map.cells.iter().enumerate() {
             write!($stdout, "{}{}", termion::cursor::Goto(1, 2 + i as u16), val).unwrap();
         }
 
         //write!($stdout, "{}{}", termion::cursor::Goto(1 + $dungeon.player.x, 2 + $dungeon.player.y), player).unwrap();
-        write!($stdout, "{}{}", termion::cursor::Goto(1 + $dungeon.player.x, 2 + $dungeon.player.y), player).unwrap();
+        write!($stdout, "{}{}", termion::cursor::Goto(1 + $dungeon.player.pos.x, 2 + $dungeon.player.pos.y), player).unwrap();
         $stdout.flush().unwrap();
     }
 }
 
-fn calc_spawn_pos(map: &Map) -> (u16, u16) {
+fn calc_spawn_pos(map: &Map) -> Position {
     let mut v = Vec::new();
     for (i, s) in map.cells.iter().enumerate() {
         //for (j, s) in s.iter().enumerate() {
@@ -59,10 +63,18 @@ fn calc_spawn_pos(map: &Map) -> (u16, u16) {
     }
 
     if v.is_empty() {
-        (0, 0)
+        Position {
+            x: 0,
+            y: 0,
+        }
     } else {
         let mut rng = thread_rng();
-        v[rng.gen_range(0, v.len())]
+        let p = v[rng.gen_range(0, v.len())];
+
+        Position {
+            x: p.1,
+            y: p.0,
+        }
     }
 }
 
@@ -94,8 +106,7 @@ fn main() {
         hp: 15,
         power: 8,
 
-        x: pos.1,
-        y: pos.0,
+        pos: pos,
     };
 
 
@@ -128,16 +139,16 @@ fn main() {
                 break;
             }
             b'h' => {
-                dungeon.player.x -= 1;
+                dungeon.player.pos.x -= 1;
             }
             b'j' => {
-                dungeon.player.y += 1;
+                dungeon.player.pos.y += 1;
             }
             b'k' => {
-                dungeon.player.y -= 1;
+                dungeon.player.pos.y -= 1;
             }
             b'l' => {
-                dungeon.player.x += 1;
+                dungeon.player.pos.x += 1;
             }
             a => {
                 dungeon.status = format!("{}", a);
