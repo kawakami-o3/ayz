@@ -20,6 +20,23 @@ struct Map {
     pub cells: Vec<String>,
 }
 
+impl Map {
+    fn is_wall(&self, pos: &Position) -> bool {
+        let ln = self.cells.get(pos.y as usize); //[pos.x as usize].chars().nth(pos.y as usize);
+        if ln == None {
+            panic!();
+        }
+
+        let c = ln.unwrap().chars().nth(pos.x as usize);
+        if c == None {
+            panic!();
+        }
+
+        return c == Some('#');
+    }
+}
+
+#[derive(Clone)]
 struct Position {
     pub x: u16,
     pub y: u16,
@@ -106,7 +123,7 @@ fn main() {
         hp: 15,
         power: 8,
 
-        pos: pos,
+        pos,
     };
 
 
@@ -134,25 +151,33 @@ fn main() {
     loop {
         let b = bytes.next().unwrap().unwrap();
 
+        let mut next_pos = dungeon.player.pos.clone();
         match b {
             b'q' => {
                 break;
             }
             b'h' => {
-                dungeon.player.pos.x -= 1;
+                next_pos.x -= 1;
             }
             b'j' => {
-                dungeon.player.pos.y += 1;
+                next_pos.y += 1;
             }
             b'k' => {
-                dungeon.player.pos.y -= 1;
+                next_pos.y -= 1;
             }
             b'l' => {
-                dungeon.player.pos.x += 1;
+                next_pos.x += 1;
             }
             a => {
                 dungeon.status = format!("{}", a);
             }
+        }
+
+        if dungeon.map.is_wall(&next_pos) {
+            dungeon.status = String::from("wall");
+        } else {
+            dungeon.player.pos = next_pos;
+            dungeon.status = String::from("move");
         }
 
         write_game!(stdout, dungeon);
