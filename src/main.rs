@@ -183,6 +183,9 @@ fn main() {
         write_game!(stdout, dungeon);
     }
 
-    write!(stdout, "{}", termion::cursor::Show).unwrap();
+    write!(stdout, "{}{}{}",
+        termion::clear::All,
+        termion::cursor::Goto(1, 1),
+        termion::cursor::Show).unwrap();
     stdout.flush().unwrap();
 }
