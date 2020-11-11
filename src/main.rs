@@ -11,6 +11,7 @@ struct Dungeon {
     pub turn: usize,
 
     pub player: Player,
+    pub monsters: Vec<Monster>,
     pub status: String,
 
     pub map: Map,
@@ -44,6 +45,16 @@ struct Position {
 
 struct Player {
     pub level: i32,
+
+    pub symbol: String,
+    pub hp: i32,
+    pub power: i32,
+
+    pub pos: Position,
+}
+
+struct Monster {
+    pub symbol: String,
     pub hp: i32,
     pub power: i32,
 
@@ -52,8 +63,6 @@ struct Player {
 
 macro_rules! write_game {
     ($stdout:expr, $dungeon:expr) =>{
-        let player = "@";
-
         write!($stdout, "{}", termion::clear::All).unwrap();
 
         write!($stdout, "{}> p({}, {}). {}", termion::cursor::Goto(1, 1), $dungeon.player.pos.x, $dungeon.player.pos.y, $dungeon.status).unwrap();
@@ -63,7 +72,12 @@ macro_rules! write_game {
         }
 
         //write!($stdout, "{}{}", termion::cursor::Goto(1 + $dungeon.player.x, 2 + $dungeon.player.y), player).unwrap();
-        write!($stdout, "{}{}", termion::cursor::Goto(1 + $dungeon.player.pos.x, 2 + $dungeon.player.pos.y), player).unwrap();
+        let player = &$dungeon.player;
+        write!($stdout, "{}{}", termion::cursor::Goto(1 + player.pos.x, 2 + player.pos.y), player.symbol).unwrap();
+
+        for i in $dungeon.monsters.iter() {
+            write!($stdout, "{}{}", termion::cursor::Goto(1 + i.pos.x, 2 + i.pos.y), i.symbol).unwrap();
+        }
         $stdout.flush().unwrap();
     }
 }
@@ -120,18 +134,30 @@ fn main() {
 
     let player = Player {
         level: 1,
+
+        symbol: String::from("@"),
         hp: 15,
         power: 8,
 
         pos,
     };
 
+    let monsters = vec![
+        Monster {
+            symbol: String::from("M"),
+            hp: 10,
+            power: 1,
+
+            pos: calc_spawn_pos(&map),
+        }
+    ];
 
     let mut dungeon = Dungeon {
         floor: 1,
         turn: 0,
 
         player,
+        monsters,
         status: String::from("start"),
 
         map,
@@ -184,8 +210,8 @@ fn main() {
     }
 
     write!(stdout, "{}{}{}",
-        termion::clear::All,
-        termion::cursor::Goto(1, 1),
-        termion::cursor::Show).unwrap();
+           termion::clear::All,
+           termion::cursor::Goto(1, 1),
+           termion::cursor::Show).unwrap();
     stdout.flush().unwrap();
 }
