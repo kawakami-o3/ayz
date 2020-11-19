@@ -17,6 +17,57 @@ struct Dungeon {
     pub map: Map,
 }
 
+impl Dungeon {
+    fn can_move(&self, pos: &Position) -> bool {
+        if self.player.pos.x == pos.x && self.player.pos.y == pos.y {
+            return false;
+        }
+
+        for m in self.monsters.iter() {
+            if m.pos.x == pos.x && m.pos.y == pos.y {
+                return false;
+            }
+        }
+        return !self.map.is_wall(pos);
+    }
+
+    fn move_monsters(&mut self) {
+        let mut rng = thread_rng();
+        let dps = vec![
+            Position { x: -1, y: -1 },
+            Position { x: 0, y: -1 },
+            Position { x: 1, y: -1 },
+            Position { x: -1, y: 0 },
+            Position { x: 1, y: 0 },
+            Position { x: -1, y: 1 },
+            Position { x: 0, y: 1 },
+            Position { x: 1, y: 1 },
+        ];
+
+        let mut new_pos = Vec::new();
+        for m in self.monsters.iter() {
+            let mut v = Vec::new();
+
+            for dp in dps.iter() {
+                if self.can_move(&m.pos.plus(dp)) {
+                    v.push(dp);
+                }
+            }
+
+            if v.is_empty() {
+                new_pos.push(m.pos);
+            } else {
+                let dp = v[rng.gen_range(0, v.len())];
+                new_pos.push(m.pos.plus(dp));
+            }
+        }
+
+        for (i, m) in self.monsters.iter_mut().enumerate() {
+            m.pos = new_pos[i];
+        }
+    }
+}
+
 struct Map {
     pub cells: Vec<String>,
 }
@@ -37,10 +88,19 @@ impl Map {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Copy)]
 struct Position {
-    pub x: u16,
-    pub y: u16,
+    pub x: i32,
+    pub y: i32,
+}
+
+impl Position {
+    fn plus(&self, pos: &Position) -> Position {
+        Position {
+            x: self.x + pos.x,
+            y: self.y + pos.y,
+        }
+    }
 }
 
 struct Player {
@@ -73,10 +133,10 @@ macro_rules! write_game {
 
         //write!($stdout, "{}{}", termion::cursor::Goto(1 + $dungeon.player.x, 2 + $dungeon.player.y), player).unwrap();
         let player = &$dungeon.player;
-        write!($stdout, "{}{}", termion::cursor::Goto(1 + player.pos.x, 2 + player.pos.y), player.symbol).unwrap();
+        write!($stdout, "{}{}", termion::cursor::Goto(1 + player.pos.x as u16, 2 + player.pos.y as u16), player.symbol).unwrap();
 
         for i in $dungeon.monsters.iter() {
-            write!($stdout, "{}{}", termion::cursor::Goto(1 + i.pos.x, 2 + i.pos.y), i.symbol).unwrap();
+            write!($stdout, "{}{}", termion::cursor::Goto(1 + i.pos.x as u16, 2 + i.pos.y as u16), i.symbol).unwrap();
         }
         $stdout.flush().unwrap();
     }
@@ -88,7 +148,8 @@ fn calc_spawn_pos(map: &Map) -> Position {
         //for (j, s) in s.iter().enumerate() {
         for (j, c) in s.chars().enumerate() {
             if c == '.' {
-                v.push((i as u16, j as u16));
+                //v.push((i as u16, j as u16));
+                v.push((i, j));
             }
         }
     }
@@ -103,8 +164,8 @@ fn calc_spawn_pos(map: &Map) -> Position {
         let p = v[rng.gen_range(0, v.len())];
 
         Position {
-            x: p.1,
-            y: p.0,
+            x: p.1 as i32,
+            y: p.0 as i32,
         }
     }
 }
@@ -199,11 +260,13 @@ fn main() {
             }
         }
 
-        if dungeon.map.is_wall(&next_pos) {
-            dungeon.status = String::from("wall");
-        } else {
+        if dungeon.can_move(&next_pos) {
             dungeon.player.pos = next_pos;
             dungeon.status = String::from("move");
+
+            dungeon.move_monsters();
+        } else {
+            dungeon.status = String::from("Failed to move");
         }
 
         write_game!(stdout, dungeon);
