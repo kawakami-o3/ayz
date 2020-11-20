@@ -103,6 +103,16 @@ impl Position {
     }
 }
 
+const U: Position = Position { x: 0, y: -1 };
+const D: Position = Position { x: 0, y: 1 };
+const L: Position = Position { x: -1, y: 0 };
+const R: Position = Position { x: -1, y: 0 };
+
+const UR: Position = Position { x: 1, y: -1 };
+const UL: Position = Position { x: -1, y: -1 };
+const DR: Position = Position { x: 1, y: 1 };
+const DL: Position = Position { x: -1, y: 1 };
+
 struct Player {
     pub level: i32,
 
@@ -111,6 +121,7 @@ struct Player {
     pub power: i32,
 
     pub pos: Position,
+    pub direction: Position,
 }
 
 struct Monster {
@@ -201,6 +212,7 @@ fn main() {
         power: 8,
 
         pos,
+        direction: D,
     };
 
     let monsters = vec![
@@ -244,16 +256,20 @@ fn main() {
                 break;
             }
             b'h' => {
-                next_pos.x -= 1;
+                next_pos = next_pos.plus(&L);
+                dungeon.player.direction = L;
             }
             b'j' => {
-                next_pos.y += 1;
+                next_pos = next_pos.plus(&D);
+                dungeon.player.direction = D;
             }
             b'k' => {
-                next_pos.y -= 1;
+                next_pos = next_pos.plus(&U);
+                dungeon.player.direction = U;
             }
             b'l' => {
-                next_pos.x += 1;
+                next_pos = next_pos.plus(&R);
+                dungeon.player.direction = R;
             }
             a => {
                 dungeon.status = format!("{}", a);
