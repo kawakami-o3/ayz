@@ -1,10 +1,18 @@
 extern crate termion;
 
-//use termion::color;
 use std::io::{stdin, stdout, Read, Write};
 use rand::{thread_rng, Rng};
 use termion::raw::IntoRawMode;
 
+trait Cell {
+    fn is_room(self) -> bool;
+}
+
+impl Cell for char {
+    fn is_room(self) -> bool {
+        self.is_alphabetic()
+    }
+}
 
 struct Dungeon {
     pub floor: usize,
@@ -73,19 +81,25 @@ struct Map {
 }
 
 impl Map {
-    fn is_wall(&self, pos: &Position) -> bool {
-        let ln = self.cells.get(pos.y as usize); //[pos.x as usize].chars().nth(pos.y as usize);
+    fn get_cell(&self, pos: &Position) -> Option<char> {
+        let ln = self.cells.get(pos.y as usize);
         if ln == None {
-            panic!();
+            return None;
         }
 
-        let c = ln.unwrap().chars().nth(pos.x as usize);
-        if c == None {
-            panic!();
-        }
-
-        return c == Some('#');
+        return ln.unwrap().chars().nth(pos.x as usize);
     }
+
+    fn is_wall(&self, pos: &Position) -> bool {
+        return self.get_cell(pos) == Some('#');
+    }
+    
+    //fn is_room(&self, pos: &Position) -> bool {
+    //    return match self.get_cell(pos) {
+    //        None => false,
+    //        Some(c) => c.is_ascii(),
+    //    };
+    //}
 }
 
 #[derive(Clone, Copy)]
@@ -139,10 +153,16 @@ macro_rules! write_game {
         write!($stdout, "{}> p({}, {}). {}", termion::cursor::Goto(1, 1), $dungeon.player.pos.x, $dungeon.player.pos.y, $dungeon.status).unwrap();
 
         for (i, val) in $dungeon.map.cells.iter().enumerate() {
-            write!($stdout, "{}{}", termion::cursor::Goto(1, 2 + i as u16), val).unwrap();
+            for (j, v) in val.chars().enumerate() {
+                let c = if v.is_room() {
+                    '.'
+                } else {
+                    v
+                };
+                write!($stdout, "{}{}", termion::cursor::Goto(1 + j as u16, 2 + i as u16), c).unwrap();
+            }
         }
 
-        //write!($stdout, "{}{}", termion::cursor::Goto(1 + $dungeon.player.x, 2 + $dungeon.player.y), player).unwrap();
         let player = &$dungeon.player;
         write!($stdout, "{}{}", termion::cursor::Goto(1 + player.pos.x as u16, 2 + player.pos.y as u16), player.symbol).unwrap();
 
@@ -156,10 +176,8 @@ macro_rules! write_game {
 fn calc_spawn_pos(map: &Map) -> Position {
     let mut v = Vec::new();
     for (i, s) in map.cells.iter().enumerate() {
-        //for (j, s) in s.iter().enumerate() {
         for (j, c) in s.chars().enumerate() {
-            if c == '.' {
-                //v.push((i as u16, j as u16));
+            if c.is_room() {
                 v.push((i, j));
             }
         }
@@ -185,19 +203,19 @@ fn main() {
     let map = Map {
         cells: vec![
             String::from("##########################################################"),
-            String::from("#......................########..........................#"),
-            String::from("#......................########..........................#"),
-            String::from("#......................----####..........................#"),
-            String::from("#......................###-####..........................#"),
-            String::from("#......................###-####..........................#"),
-            String::from("#......................###-####..........................#"),
-            String::from("#......................###-####..........................#"),
-            String::from("#......................###-####..........................#"),
-            String::from("#......................###-####..........................#"),
-            String::from("#......................###-####..........................#"),
-            String::from("#......................###-----..........................#"),
-            String::from("#......................########..........................#"),
-            String::from("#......................########..........................#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa----####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-----bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
             String::from("##########################################################"),
         ],
     };
