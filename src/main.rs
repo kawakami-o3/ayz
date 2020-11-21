@@ -106,7 +106,7 @@ impl Position {
 const U: Position = Position { x: 0, y: -1 };
 const D: Position = Position { x: 0, y: 1 };
 const L: Position = Position { x: -1, y: 0 };
-const R: Position = Position { x: -1, y: 0 };
+const R: Position = Position { x: 1, y: 0 };
 
 const UR: Position = Position { x: 1, y: -1 };
 const UL: Position = Position { x: -1, y: -1 };
@@ -270,6 +270,22 @@ fn main() {
             b'l' => {
                 next_pos = next_pos.plus(&R);
                 dungeon.player.direction = R;
+            }
+            b'y' => {
+                next_pos = next_pos.plus(&UL);
+                dungeon.player.direction = UL;
+            }
+            b'u' => {
+                next_pos = next_pos.plus(&UR);
+                dungeon.player.direction = UR;
+            }
+            b'n' => {
+                next_pos = next_pos.plus(&DL);
+                dungeon.player.direction = DL;
+            }
+            b'm' => {
+                next_pos = next_pos.plus(&DR);
+                dungeon.player.direction = DR;
             }
             a => {
                 dungeon.status = format!("{}", a);
