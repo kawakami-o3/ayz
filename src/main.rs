@@ -65,7 +65,7 @@ impl Dungeon {
             if v.is_empty() {
                 new_pos.push(m.pos);
             } else {
-                let dp = v[rng.gen_range(0, v.len())];
+                let dp = v[rng.gen_range(0..v.len())];
                 new_pos.push(m.pos.plus(dp));
             }
         }
@@ -190,7 +190,7 @@ fn calc_spawn_pos(map: &Map) -> Position {
         }
     } else {
         let mut rng = thread_rng();
-        let p = v[rng.gen_range(0, v.len())];
+        let p = v[rng.gen_range(0..v.len())];
 
         Position {
             x: p.1 as i32,
