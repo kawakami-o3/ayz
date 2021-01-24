@@ -238,18 +238,18 @@ fn cut_areas(areas: &mut Vec<Area>) {
                     for i in old_link {
                         if !base.is_link(&areas[i], CutType::Horizontal) {
                             // TODO リファクタリング vec.remove_item
-                            //{
-                            //    let ii = base.link.right.iter().position(|x| *x == i);
-                            //    if let Some(target_i) = ii {
-                            //        base.link.right.remove(target_i);
-                            //    }
-                            //}
-                            //{
-                            //    let ii = areas[i].link.left.iter().position(|x| *x == idx);
-                            //    if let Some(target_i) = ii {
-                            //        areas[i].link.left.remove(target_i);
-                            //    }
-                            //}
+                            {
+                                let ii = base.link.right.iter().position(|x| *x == i);
+                                if let Some(target_i) = ii {
+                                    base.link.right.remove(target_i);
+                                }
+                            }
+                            {
+                                let ii = areas[i].link.left.iter().position(|x| *x == idx);
+                                if let Some(target_i) = ii {
+                                    areas[i].link.left.remove(target_i);
+                                }
+                            }
                         }
                         if area.is_link(&areas[i], CutType::Horizontal) {
                             area.link.right.push(i);
@@ -267,18 +267,18 @@ fn cut_areas(areas: &mut Vec<Area>) {
                             //areas[i].link.right.remove_item(idx);
 
                             // TODO リファクタリング vec.remove_item
-                            //{
-                            //    let ii = base.link.left.iter().position(|x| *x == i);
-                            //    if let Some(target_i) = ii {
-                            //        base.link.left.remove(target_i);
-                            //    }
-                            //}
-                            //{
-                            //    let ii = areas[i].link.right.iter().position(|x| *x == idx);
-                            //    if let Some(target_i) = ii {
-                            //        areas[i].link.right.remove(target_i);
-                            //    }
-                            //}
+                            {
+                                let ii = base.link.left.iter().position(|x| *x == i);
+                                if let Some(target_i) = ii {
+                                    base.link.left.remove(target_i);
+                                }
+                            }
+                            {
+                                let ii = areas[i].link.right.iter().position(|x| *x == idx);
+                                if let Some(target_i) = ii {
+                                    areas[i].link.right.remove(target_i);
+                                }
+                            }
                         }
                         if area.is_link(&areas[i], CutType::Horizontal) {
                             area.link.left.push(i);
@@ -316,18 +316,18 @@ fn cut_areas(areas: &mut Vec<Area>) {
                             //base.link.up.remove_item(i);
                             //areas[i].link.down.remove_item(idx);
                             // TODO リファクタリング vec.remove_item
-                            //{
-                            //    let ii = base.link.up.iter().position(|x| *x == i);
-                            //    if let Some(target_i) = ii {
-                            //        base.link.up.remove(target_i);
-                            //    }
-                            //}
-                            //{
-                            //    let ii = areas[i].link.down.iter().position(|x| *x == idx);
-                            //    if let Some(target_i) = ii {
-                            //        areas[i].link.down.remove(target_i);
-                            //    }
-                            //}
+                            {
+                                let ii = base.link.up.iter().position(|x| *x == i);
+                                if let Some(target_i) = ii {
+                                    base.link.up.remove(target_i);
+                                }
+                            }
+                            {
+                                let ii = areas[i].link.down.iter().position(|x| *x == idx);
+                                if let Some(target_i) = ii {
+                                    areas[i].link.down.remove(target_i);
+                                }
+                            }
                         }
                         if area.is_link(&areas[i], CutType::Vertical) {
                             area.link.up.push(i);
@@ -345,18 +345,18 @@ fn cut_areas(areas: &mut Vec<Area>) {
                             //areas[i].link.up.remove(idx);
                         
                             // TODO リファクタリング vec.remove_item
-                            //{
-                            //    let ii = base.link.down.iter().position(|x| *x == i);
-                            //    if let Some(target_i) = ii {
-                            //        base.link.down.remove(target_i);
-                            //    }
-                            //}
-                            //{
-                            //    let ii = areas[i].link.up.iter().position(|x| *x == idx);
-                            //    if let Some(target_i) = ii {
-                            //        areas[i].link.up.remove(target_i);
-                            //    }
-                            //}
+                            {
+                                let ii = base.link.down.iter().position(|x| *x == i);
+                                if let Some(target_i) = ii {
+                                    base.link.down.remove(target_i);
+                                }
+                            }
+                            {
+                                let ii = areas[i].link.up.iter().position(|x| *x == idx);
+                                if let Some(target_i) = ii {
+                                    areas[i].link.up.remove(target_i);
+                                }
+                            }
                         }
                         if area.is_link(&areas[i], CutType::Vertical) {
                             area.link.down.push(i);
