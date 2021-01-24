@@ -75,33 +75,14 @@ impl Area {
 
     fn is_link(&self, target: & Area, cut_type: CutType) -> bool {
         // TODO 通路分の余白は隣接判定に含めたくない
-        let ret = match cut_type {
+        match cut_type {
             CutType::Horizontal => {
                 ! (self.y > (target.y + target.h) || target.y > (self.y + self.h))
             }
             CutType::Vertical => {
-                // ! (self.x < (target.x + target.w) || target.x < (self.x + self.w))
                 ! (self.x > (target.x + target.w) || target.x > (self.x + self.w))
             }
-        };
-
-        if !ret {
-            println!("> {}: {:?}", self.idx, self);
-            println!("> {}: {:?}", target.idx, target);
-            println!("> {:?}", cut_type);
-
-            match cut_type {
-                CutType::Horizontal => {
-                    println!("> {} < {} || {} < {}", self.y, target.y + target.h, target.y, self.y + self.h);
-                }
-                CutType::Vertical => {
-                    println!("> {} < {} || {} < {}", self.x, target.x + target.w, target.x, self.x + self.w);
-                }
-            }
         }
-
-
-        return ret;
     }
 }
 
@@ -389,7 +370,7 @@ fn generate_rooms(areas: &mut Vec<Area>) {
     fix_room_size(areas);
 }
 
-#[derive(PartialEq, Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 enum LinkType {
     UP,
     DOWN,
@@ -397,7 +378,7 @@ enum LinkType {
     RIGHT,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 struct Aisle {
     from: usize,
     to: usize,
@@ -483,61 +464,81 @@ fn create_aisle_points(a: & Room, b: & Room, link: LinkType) -> Vec<Point> {
 fn create_aisles(areas: & Vec<Area>) -> Vec<Point> {
     let mut rnd = rand::thread_rng();
     let mut aisles = Vec::new();
-    let mut idx = 0;
-    let mut linked = Vec::new();
-    linked.push(idx);
 
-    let mut rest = Vec::new();
 
-    while linked.len() < areas.len() {
-        println!("{}: {:?}", idx, areas[idx]);
+    let mut connected_flgs = Vec::new();
+    for _i in 0..areas.len() {
+        connected_flgs.push(false);
+    }
+    connected_flgs[0] = true;
 
+
+    while connected_flgs.iter().any(|&x| !x) {
         let mut candidates = Vec::new();
 
-        // TODO 最後に一括で隣接判定を行うことによって、このコード重複も消せそう.
-        for i in &areas[idx].link.up {
-            if !linked.contains(i) {
-                candidates.push(Aisle::new(idx, *i, LinkType::UP));
+        // 連結済みの集合から、未連結へと繋がる経路を抽出.
+        for (idx, f) in connected_flgs.iter().enumerate() {
+            if !f {
+                continue;
             }
-        }
-        for i in &areas[idx].link.down {
-            if !linked.contains(i) {
-                candidates.push(Aisle::new(idx, *i, LinkType::DOWN));
+
+            for i in &areas[idx].link.up {
+                if !connected_flgs[*i] {
+                    candidates.push(Aisle::new(idx, *i, LinkType::UP));
+                }
             }
-        }
-        for i in &areas[idx].link.left {
-            if !linked.contains(i) {
-                candidates.push(Aisle::new(idx, *i, LinkType::LEFT));
+            for i in &areas[idx].link.down {
+                if !connected_flgs[*i] {
+                    candidates.push(Aisle::new(idx, *i, LinkType::DOWN));
+                }
             }
-        }
-        for i in &areas[idx].link.right {
-            if !linked.contains(i) {
-                candidates.push(Aisle::new(idx, *i, LinkType::RIGHT));
+            for i in &areas[idx].link.left {
+                if !connected_flgs[*i] {
+                    candidates.push(Aisle::new(idx, *i, LinkType::LEFT));
+                }
+            }
+            for i in &areas[idx].link.right {
+                if !connected_flgs[*i] {
+                    candidates.push(Aisle::new(idx, *i, LinkType::RIGHT));
+                }
             }
         }
 
-        if candidates.is_empty() {
-            println!("break: {}", idx);
-            break;
-            //continue;
-        }
-
-        println!("{:?}", candidates);
         let target_i = rnd.gen_range(0..candidates.len());
 
-        for (i, c) in candidates.iter().enumerate() {
-            if i != target_i {
-                rest.push(c.clone());
-            }
-        }
-
         let c = candidates[target_i].clone();
-        idx = c.to;
-
+        connected_flgs[c.to] = true;
         aisles.push(c);
-        linked.push(idx);
     }
 
+    
+    let mut rest = Vec::new();
+    for area in areas {
+        for i in &area.link.up {
+            let a = Aisle::new(area.idx, *i, LinkType::UP);
+            if !aisles.contains(&a) {
+                rest.push(a);
+            }
+        }
+        for i in &area.link.down {
+            let a = Aisle::new(area.idx, *i, LinkType::DOWN);
+            if !aisles.contains(&a) {
+                rest.push(a);
+            }
+        }
+        for i in &area.link.left {
+            let a = Aisle::new(area.idx, *i, LinkType::LEFT);
+            if !aisles.contains(&a) {
+                rest.push(a);
+            }
+        }
+        for i in &area.link.right {
+            let a = Aisle::new(area.idx, *i, LinkType::RIGHT);
+            if !aisles.contains(&a) {
+                rest.push(a);
+            }
+        }
+    }
 
     // 追加の通路
     // TODO 追加ルール. 適当にいくつか追加するより良い方法はあるか.
