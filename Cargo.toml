@@ -18,6 +18,10 @@ path = "src/test_room.rs"
 name = "aisle"
 path = "src/test_aisle.rs"
 
+[[bin]]
+name = "map"
+path = "src/test_map.rs"
+
 [dependencies]
 rand = "0.8.2"
 termion = "*"
