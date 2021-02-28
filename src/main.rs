@@ -92,7 +92,7 @@ impl Map {
     }
 
     fn is_wall(&self, pos: &Position) -> bool {
-        return self.get_cell(pos) == Some('#');
+        return self.get_cell(pos) == Some(' ');
     }
     
     //fn is_room(&self, pos: &Position) -> bool {
