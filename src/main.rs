@@ -1,5 +1,6 @@
 extern crate termion;
 
+use ayz::map;
 use std::io::{stdin, stdout, Read, Write};
 use rand::{thread_rng, Rng};
 use termion::raw::IntoRawMode;
@@ -200,6 +201,7 @@ fn calc_spawn_pos(map: &Map) -> Position {
 }
 
 fn main() {
+    /*
     let map = Map {
         cells: vec![
             String::from("##########################################################"),
@@ -218,6 +220,10 @@ fn main() {
             String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
             String::from("##########################################################"),
         ],
+    };
+    */
+    let map = Map {
+        cells: map::gen(),
     };
 
     let pos = calc_spawn_pos(&map);
