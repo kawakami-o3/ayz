@@ -1,6 +1,7 @@
 extern crate termion;
 
 use ayz::map;
+use ayz::etc::*;
 use std::io::{stdin, stdout, Read, Write};
 use rand::{thread_rng, Rng};
 use termion::raw::IntoRawMode;
@@ -23,7 +24,7 @@ struct Dungeon {
     pub monsters: Vec<Monster>,
     pub status: String,
 
-    pub map: Map,
+    pub map: map::Map,
 }
 
 impl Dungeon {
@@ -77,46 +78,20 @@ impl Dungeon {
     }
 }
 
-struct Map {
-    pub cells: Vec<String>,
-}
-
-impl Map {
-    fn get_cell(&self, pos: &Position) -> Option<char> {
-        let ln = self.cells.get(pos.y as usize);
-        if ln == None {
-            return None;
-        }
-
-        return ln.unwrap().chars().nth(pos.x as usize);
-    }
-
-    fn is_wall(&self, pos: &Position) -> bool {
-        return self.get_cell(pos) == Some(' ');
-    }
-    
-    //fn is_room(&self, pos: &Position) -> bool {
-    //    return match self.get_cell(pos) {
-    //        None => false,
-    //        Some(c) => c.is_ascii(),
-    //    };
-    //}
-}
-
-#[derive(Clone, Copy)]
-struct Position {
-    pub x: i32,
-    pub y: i32,
-}
-
-impl Position {
-    fn plus(&self, pos: &Position) -> Position {
-        Position {
-            x: self.x + pos.x,
-            y: self.y + pos.y,
-        }
-    }
-}
+//#[derive(Clone, Copy)]
+//struct Position {
+//    pub x: i32,
+//    pub y: i32,
+//}
+//
+//impl Position {
+//    fn plus(&self, pos: &Position) -> Position {
+//        Position {
+//            x: self.x + pos.x,
+//            y: self.y + pos.y,
+//        }
+//    }
+//}
 
 const U: Position = Position { x: 0, y: -1 };
 const D: Position = Position { x: 0, y: 1 };
@@ -174,7 +149,7 @@ macro_rules! write_game {
     }
 }
 
-fn calc_spawn_pos(map: &Map) -> Position {
+fn calc_spawn_pos(map: &map::Map) -> Position {
     let mut v = Vec::new();
     for (i, s) in map.cells.iter().enumerate() {
         for (j, c) in s.chars().enumerate() {
@@ -222,7 +197,7 @@ fn main() {
         ],
     };
     */
-    let map = Map {
+    let map = map::Map {
         cells: map::gen(),
     };
 

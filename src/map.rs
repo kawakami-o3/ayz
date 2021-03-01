@@ -1,6 +1,8 @@
 
 use rand::Rng;
 
+use crate::etc::*;
+
 const MIN_ROOM_SIZE: usize = 3;
 const MIN_AISLE_SIZE: usize = 2;
 const MIN_CUT_SIZE: usize = 2 * (MIN_ROOM_SIZE + MIN_AISLE_SIZE * 2); // 部屋は最小 3, 通路の余白 2x2 とすると分割前の最小サイズは 14.
@@ -630,6 +632,33 @@ pub fn gen() -> Vec<String> {
 
     let aisles = create_aisles(&areas);
     return to_strings(height, width, &areas, &aisles);
+}
+
+
+pub struct Map {
+    pub cells: Vec<String>,
+}
+
+impl Map {
+    pub fn get_cell(&self, pos: &crate::etc::Position) -> Option<char> {
+        let ln = self.cells.get(pos.y as usize);
+        if ln == None {
+            return None;
+        }
+
+        return ln.unwrap().chars().nth(pos.x as usize);
+    }
+
+    pub fn is_wall(&self, pos: &Position) -> bool {
+        return self.get_cell(pos) == Some(' ');
+    }
+    
+    //fn is_room(&self, pos: &Position) -> bool {
+    //    return match self.get_cell(pos) {
+    //        None => false,
+    //        Some(c) => c.is_ascii(),
+    //    };
+    //}
 }
 
 
