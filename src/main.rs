@@ -149,7 +149,7 @@ macro_rules! write_game {
     }
 }
 
-fn calc_spawn_pos(map: &map::Map) -> Position {
+fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
     let mut v = Vec::new();
     for (i, s) in map.cells.iter().enumerate() {
         for (j, c) in s.chars().enumerate() {
@@ -158,6 +158,8 @@ fn calc_spawn_pos(map: &map::Map) -> Position {
             }
         }
     }
+
+    v = v.iter().filter(|&x| !monsters.iter().any(|m| m.pos.x == x.0 as i32 && m.pos.y == x.1 as i32)).cloned().collect();
 
     if v.is_empty() {
         Position {
@@ -176,32 +178,12 @@ fn calc_spawn_pos(map: &map::Map) -> Position {
 }
 
 fn main() {
-    /*
-    let map = Map {
-        cells: vec![
-            String::from("##########################################################"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa----####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa###-----bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-            String::from("##########################################################"),
-        ],
-    };
-    */
     let map = map::Map {
         cells: map::gen(),
     };
 
-    let pos = calc_spawn_pos(&map);
+    let mut monsters = Vec::new();
+    let pos = calc_spawn_pos(&map, &monsters);
 
     let player = Player {
         level: 1,
@@ -214,15 +196,16 @@ fn main() {
         direction: D,
     };
 
-    let monsters = vec![
-        Monster {
+
+    for _i in 0..10 {
+        monsters.push(Monster {
             symbol: String::from("M"),
             hp: 10,
             power: 1,
 
-            pos: calc_spawn_pos(&map),
-        }
-    ];
+            pos: calc_spawn_pos(&map, &monsters),
+        })
+    }
 
     let mut dungeon = Dungeon {
         floor: 1,

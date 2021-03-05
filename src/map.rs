@@ -609,6 +609,26 @@ fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Poi
 //    }
 }
 
+pub fn gen_test() -> Vec<String> {
+    vec![
+        String::from("##########################################################"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa----####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-----bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+        String::from("##########################################################"),
+    ]
+}
+
 pub fn gen() -> Vec<String> {
 
     //let height = 100;
