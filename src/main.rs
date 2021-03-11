@@ -18,6 +18,7 @@ impl Cell for char {
 
 struct Dungeon {
     pub floor: usize,
+    pub max_floor: usize,
     pub turn: usize,
 
     pub player: Player,
@@ -39,6 +40,10 @@ impl Dungeon {
             }
         }
         return !self.map.is_wall(pos);
+    }
+
+    fn is_exit(&self, pos: &Position) -> bool {
+        true
     }
 
     fn move_monsters(&mut self) {
@@ -177,6 +182,9 @@ fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
     }
 }
 
+fn gen_next_floor(dungeon: &mut Dungeon) {
+}
+
 fn main() {
     let map = map::Map {
         cells: map::gen(),
@@ -209,6 +217,7 @@ fn main() {
 
     let mut dungeon = Dungeon {
         floor: 1,
+        max_floor: 10,
         turn: 0,
 
         player,
@@ -274,11 +283,24 @@ fn main() {
             }
         }
 
-        if dungeon.can_move(&next_pos) {
+        if dungeon.floor > dungeon.max_floor {
+            dungeon.status = String::from("Done.");
+        } else if dungeon.can_move(&next_pos) {
             dungeon.player.pos = next_pos;
             dungeon.status = String::from("move");
 
             dungeon.move_monsters();
+        } else if dungeon.is_exit(&next_pos) {
+            dungeon.floor += 1;
+            if dungeon.floor > dungeon.max_floor {
+
+                dungeon.status = format!("Done. {}/{}", dungeon.floor, dungeon.max_floor).to_string();
+            } else {
+                dungeon.status = format!("Floor {}/{}", dungeon.floor, dungeon.max_floor).to_string();
+
+                gen_next_floor(&mut dungeon);
+                // TODO update map and positions.
+            }
         } else {
             dungeon.status = String::from("Failed to move");
         }
