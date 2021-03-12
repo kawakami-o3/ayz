@@ -8,6 +8,10 @@ const MIN_AISLE_SIZE: usize = 2;
 const MIN_CUT_SIZE: usize = 2 * (MIN_ROOM_SIZE + MIN_AISLE_SIZE * 2); // 部屋は最小 3, 通路の余白 2x2 とすると分割前の最小サイズは 14.
 const CUT_TRIAL: usize = 9;
 
+const WALL: char = ' ';
+// TODO 特殊地形は別管理にした方がよい
+const EXIT: char = '+';
+
 #[derive(Clone, Debug)]
 struct Point {
     x: usize,
@@ -573,7 +577,7 @@ fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Poi
     for _i in 0..height {
         let mut row = Vec::new();
         for _j in 0..width {
-            row.push(' ');
+            row.push(WALL);
         }
         output.push(row);
     }
@@ -595,7 +599,7 @@ fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Poi
         output[p.y][p.x] = '-';
     }
 
-    output[exit_point.y][exit_point.x] = '+';
+    output[exit_point.y][exit_point.x] = EXIT;
 
     let mut ret = Vec::new();
     for i in output {
@@ -684,12 +688,12 @@ impl Map {
 
     pub fn is_wall(&self, pos: &Position) -> bool {
         // TODO 壁を定数化
-        return self.get_cell(pos) == Some(' ');
+        return self.get_cell(pos) == Some(WALL);
     }
 
     pub fn is_exit(&self, pos: &Position) -> bool {
         // TODO 出口を定数化
-        return self.get_cell(pos) == Some('+');
+        return self.get_cell(pos) == Some(EXIT);
     }
 
     // is_room はこちらに統一できないか
