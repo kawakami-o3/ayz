@@ -6,6 +6,9 @@ use std::io::{stdin, stdout, Read, Write};
 use rand::{thread_rng, Rng};
 use termion::raw::IntoRawMode;
 
+// TODO マップを文字列として管理しているのでcharに実装しているが、
+//      特殊地形の管理などを考えると位置の移動などがあるため、
+//      適切な管理方法を考えた方がよさそう
 trait Cell {
     fn is_room(self) -> bool;
 }
@@ -42,10 +45,6 @@ impl Dungeon {
         return !self.map.is_wall(pos);
     }
 
-    fn is_exit(&self, pos: &Position) -> bool {
-        true
-    }
-
     fn move_monsters(&mut self) {
         let mut rng = thread_rng();
         let dps = vec![
@@ -80,6 +79,29 @@ impl Dungeon {
         for (i, m) in self.monsters.iter_mut().enumerate() {
             m.pos = new_pos[i];
         }
+    }
+
+    fn gen_floor(&mut self) {
+        self.map = map::gen();
+
+        let monster_count = 10;
+
+        // モンスターを配置
+        let mut monsters = Vec::new();
+
+        for _i in 0..monster_count {
+            monsters.push(Monster {
+                symbol: String::from("M"),
+                hp: 10,
+                power: 1,
+
+                pos: calc_spawn_pos(&self.map, &monsters),
+            })
+        }
+
+        self.player.pos = calc_spawn_pos(&self.map, &monsters);
+
+        self.monsters = monsters;
     }
 }
 
@@ -133,6 +155,9 @@ macro_rules! write_game {
 
         write!($stdout, "{}> p({}, {}). {}", termion::cursor::Goto(1, 1), $dungeon.player.pos.x, $dungeon.player.pos.y, $dungeon.status).unwrap();
 
+        let x_offset = 1;
+        let y_offset = 2;
+
         for (i, val) in $dungeon.map.cells.iter().enumerate() {
             for (j, v) in val.chars().enumerate() {
                 let c = if v.is_room() {
@@ -140,20 +165,22 @@ macro_rules! write_game {
                 } else {
                     v
                 };
-                write!($stdout, "{}{}", termion::cursor::Goto(1 + j as u16, 2 + i as u16), c).unwrap();
+                write!($stdout, "{}{}", termion::cursor::Goto(x_offset + j as u16, y_offset + i as u16), c).unwrap();
             }
         }
 
         let player = &$dungeon.player;
-        write!($stdout, "{}{}", termion::cursor::Goto(1 + player.pos.x as u16, 2 + player.pos.y as u16), player.symbol).unwrap();
+        write!($stdout, "{}{}", termion::cursor::Goto(x_offset + player.pos.x as u16, y_offset + player.pos.y as u16), player.symbol).unwrap();
 
         for i in $dungeon.monsters.iter() {
-            write!($stdout, "{}{}", termion::cursor::Goto(1 + i.pos.x as u16, 2 + i.pos.y as u16), i.symbol).unwrap();
+            write!($stdout, "{}{}", termion::cursor::Goto(x_offset + i.pos.x as u16, y_offset + i.pos.y as u16), i.symbol).unwrap();
         }
+
         $stdout.flush().unwrap();
     }
 }
 
+// TODO ここはmonsterよりは、spawnできない場所を受けるようにした方がよさそう
 fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
     let mut v = Vec::new();
     for (i, s) in map.cells.iter().enumerate() {
@@ -172,6 +199,7 @@ fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
             y: 0,
         }
     } else {
+        // TODO シード固定
         let mut rng = thread_rng();
         let p = v[rng.gen_range(0..v.len())];
 
@@ -182,16 +210,7 @@ fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
     }
 }
 
-fn gen_next_floor(dungeon: &mut Dungeon) {
-}
-
 fn main() {
-    let map = map::Map {
-        cells: map::gen(),
-    };
-
-    let mut monsters = Vec::new();
-    let pos = calc_spawn_pos(&map, &monsters);
 
     let player = Player {
         level: 1,
@@ -200,20 +219,9 @@ fn main() {
         hp: 15,
         power: 8,
 
-        pos,
+        pos: Position::zero(),
         direction: D,
     };
-
-
-    for _i in 0..10 {
-        monsters.push(Monster {
-            symbol: String::from("M"),
-            hp: 10,
-            power: 1,
-
-            pos: calc_spawn_pos(&map, &monsters),
-        })
-    }
 
     let mut dungeon = Dungeon {
         floor: 1,
@@ -221,11 +229,13 @@ fn main() {
         turn: 0,
 
         player,
-        monsters,
+        monsters: Vec::new(),
         status: String::from("start"),
 
-        map,
+        map: map::null(),
     };
+
+    dungeon.gen_floor();
 
     let stdout = stdout();
     let mut stdout = stdout.lock().into_raw_mode().unwrap();
@@ -285,12 +295,7 @@ fn main() {
 
         if dungeon.floor > dungeon.max_floor {
             dungeon.status = String::from("Done.");
-        } else if dungeon.can_move(&next_pos) {
-            dungeon.player.pos = next_pos;
-            dungeon.status = String::from("move");
-
-            dungeon.move_monsters();
-        } else if dungeon.is_exit(&next_pos) {
+        } else if dungeon.map.is_exit(&next_pos) {
             dungeon.floor += 1;
             if dungeon.floor > dungeon.max_floor {
 
@@ -298,9 +303,14 @@ fn main() {
             } else {
                 dungeon.status = format!("Floor {}/{}", dungeon.floor, dungeon.max_floor).to_string();
 
-                gen_next_floor(&mut dungeon);
+                dungeon.gen_floor();
                 // TODO update map and positions.
             }
+        } else if dungeon.can_move(&next_pos) {
+            dungeon.player.pos = next_pos;
+            dungeon.status = String::from("move");
+
+            dungeon.move_monsters();
         } else {
             dungeon.status = String::from("Failed to move");
         }

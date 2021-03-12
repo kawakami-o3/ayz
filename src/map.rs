@@ -1,5 +1,5 @@
 
-use rand::Rng;
+use rand::{thread_rng, Rng};
 
 use crate::etc::*;
 
@@ -567,7 +567,7 @@ fn create_aisles(areas: & Vec<Area>) -> Vec<Point> {
 }
 
 //fn to_char_all(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>) -> Vec<Vec<char>> {
-fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>) -> Vec<String> {
+fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>, exit_point: Point) -> Vec<String> {
     let mut output = Vec::new();
 
     for _i in 0..height {
@@ -594,6 +594,8 @@ fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Poi
     for p in aisles {
         output[p.y][p.x] = '-';
     }
+
+    output[exit_point.y][exit_point.x] = '+';
 
     let mut ret = Vec::new();
     for i in output {
@@ -629,7 +631,11 @@ pub fn gen_test() -> Vec<String> {
     ]
 }
 
-pub fn gen() -> Vec<String> {
+pub fn null() -> Map {
+    Map { cells: Vec::new() }
+}
+
+pub fn gen() -> Map {
 
     //let height = 100;
     //let width = 200;
@@ -646,12 +652,19 @@ pub fn gen() -> Vec<String> {
 
     generate_rooms(&mut areas);
 
-
-    //print_map(height, width, &areas, &Vec::new());
-    //println!();
-
     let aisles = create_aisles(&areas);
-    return to_strings(height, width, &areas, &aisles);
+
+    // TODO シード固定
+    let mut rng = thread_rng();
+    let room = &areas[rng.gen_range(0..areas.len())].room;
+    let exit_point = Point {
+        x: room.x + rng.gen_range(0..room.w),
+        y: room.y + rng.gen_range(0..room.h),
+    };
+
+
+    // stringに情報を落とし込んでいるけど、落とし込まずに持っていたほうが後々楽か?
+    return Map { cells: to_strings(height, width, &areas, &aisles, exit_point) };
 }
 
 
@@ -670,13 +683,20 @@ impl Map {
     }
 
     pub fn is_wall(&self, pos: &Position) -> bool {
+        // TODO 壁を定数化
         return self.get_cell(pos) == Some(' ');
     }
-    
+
+    pub fn is_exit(&self, pos: &Position) -> bool {
+        // TODO 出口を定数化
+        return self.get_cell(pos) == Some('+');
+    }
+
+    // is_room はこちらに統一できないか
     //fn is_room(&self, pos: &Position) -> bool {
     //    return match self.get_cell(pos) {
     //        None => false,
-    //        Some(c) => c.is_ascii(),
+    //        Some(c) => c.is_alphabetic(),
     //    };
     //}
 }
