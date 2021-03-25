@@ -13,7 +13,7 @@ const WALL: char = ' ';
 const EXIT: char = '+';
 
 #[derive(Clone, Debug)]
-struct Point {
+pub struct Point {
     x: usize,
     y: usize,
 }
@@ -571,7 +571,7 @@ fn create_aisles(areas: & Vec<Area>) -> Vec<Point> {
 }
 
 //fn to_char_all(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>) -> Vec<Vec<char>> {
-fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>, exit_point: Point) -> Vec<String> {
+fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>, exit_point: & Point) -> Vec<String> {
     let mut output = Vec::new();
 
     for _i in 0..height {
@@ -615,28 +615,31 @@ fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Poi
 //    }
 }
 
-pub fn gen_test() -> Vec<String> {
-    vec![
-        String::from("##########################################################"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa----####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-----bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-        String::from("##########################################################"),
-    ]
-}
+//pub fn gen_test() -> Vec<String> {
+//    vec![
+//        String::from("##########################################################"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa----####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-----bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
+//        String::from("##########################################################"),
+//    ]
+//}
 
 pub fn null() -> Map {
-    Map { cells: Vec::new() }
+    Map {
+        cells: Vec::new(),
+        exit_point: Point { x: 0, y: 0 },
+    }
 }
 
 pub fn gen() -> Map {
@@ -668,12 +671,21 @@ pub fn gen() -> Map {
 
 
     // stringに情報を落とし込んでいるけど、落とし込まずに持っていたほうが後々楽か?
-    return Map { cells: to_strings(height, width, &areas, &aisles, exit_point) };
+    return Map {
+        cells: to_strings(height, width, &areas, &aisles, &exit_point),
+        exit_point,
+    };
 }
 
 
+
+pub struct Cell {
+    pub cell_type: i32,
+}
+
 pub struct Map {
     pub cells: Vec<String>,
+    pub exit_point: Point,
 }
 
 impl Map {
@@ -687,12 +699,10 @@ impl Map {
     }
 
     pub fn is_wall(&self, pos: &Position) -> bool {
-        // TODO 壁を定数化
         return self.get_cell(pos) == Some(WALL);
     }
 
     pub fn is_exit(&self, pos: &Position) -> bool {
-        // TODO 出口を定数化
         return self.get_cell(pos) == Some(EXIT);
     }
 

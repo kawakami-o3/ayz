@@ -235,6 +235,7 @@ fn main() {
         map: map::null(),
     };
 
+
     dungeon.gen_floor();
 
     let stdout = stdout();
