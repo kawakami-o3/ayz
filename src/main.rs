@@ -210,6 +210,9 @@ fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
     }
 }
 
+struct App {
+}
+
 fn main() {
 
     let player = Player {
