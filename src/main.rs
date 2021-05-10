@@ -1,9 +1,9 @@
 extern crate termion;
 
-use ayz::map;
 use ayz::etc::*;
-use std::io::{stdin, stdout, Read, Write};
+use ayz::map;
 use rand::{thread_rng, Rng};
+use std::io::{stdin, stdout, Read, Write};
 use termion::raw::IntoRawMode;
 
 // TODO マップを文字列として管理しているのでcharに実装しているが、
@@ -150,34 +150,59 @@ struct Monster {
 }
 
 macro_rules! write_game {
-    ($stdout:expr, $dungeon:expr) =>{
+    ($stdout:expr, $dungeon:expr) => {
         write!($stdout, "{}", termion::clear::All).unwrap();
 
-        write!($stdout, "{}> p({}, {}). {}", termion::cursor::Goto(1, 1), $dungeon.player.pos.x, $dungeon.player.pos.y, $dungeon.status).unwrap();
+        write!(
+            $stdout,
+            "{}> p({}, {}). {}",
+            termion::cursor::Goto(1, 1),
+            $dungeon.player.pos.x,
+            $dungeon.player.pos.y,
+            $dungeon.status
+        )
+        .unwrap();
 
         let x_offset = 1;
         let y_offset = 2;
 
         for (i, val) in $dungeon.map.cells.iter().enumerate() {
             for (j, v) in val.chars().enumerate() {
-                let c = if v.is_room() {
-                    '.'
-                } else {
-                    v
-                };
-                write!($stdout, "{}{}", termion::cursor::Goto(x_offset + j as u16, y_offset + i as u16), c).unwrap();
+                let c = if v.is_room() { '.' } else { v };
+                write!(
+                    $stdout,
+                    "{}{}",
+                    termion::cursor::Goto(x_offset + j as u16, y_offset + i as u16),
+                    c
+                )
+                .unwrap();
             }
         }
 
         let player = &$dungeon.player;
-        write!($stdout, "{}{}", termion::cursor::Goto(x_offset + player.pos.x as u16, y_offset + player.pos.y as u16), player.symbol).unwrap();
+        write!(
+            $stdout,
+            "{}{}",
+            termion::cursor::Goto(
+                x_offset + player.pos.x as u16,
+                y_offset + player.pos.y as u16
+            ),
+            player.symbol
+        )
+        .unwrap();
 
         for i in $dungeon.monsters.iter() {
-            write!($stdout, "{}{}", termion::cursor::Goto(x_offset + i.pos.x as u16, y_offset + i.pos.y as u16), i.symbol).unwrap();
+            write!(
+                $stdout,
+                "{}{}",
+                termion::cursor::Goto(x_offset + i.pos.x as u16, y_offset + i.pos.y as u16),
+                i.symbol
+            )
+            .unwrap();
         }
 
         $stdout.flush().unwrap();
-    }
+    };
 }
 
 // TODO ここはmonsterよりは、spawnできない場所を受けるようにした方がよさそう
@@ -191,13 +216,18 @@ fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
         }
     }
 
-    v = v.iter().filter(|&x| !monsters.iter().any(|m| m.pos.x == x.0 as i32 && m.pos.y == x.1 as i32)).cloned().collect();
+    v = v
+        .iter()
+        .filter(|&x| {
+            !monsters
+                .iter()
+                .any(|m| m.pos.x == x.0 as i32 && m.pos.y == x.1 as i32)
+        })
+        .cloned()
+        .collect();
 
     if v.is_empty() {
-        Position {
-            x: 0,
-            y: 0,
-        }
+        Position { x: 0, y: 0 }
     } else {
         // TODO シード固定
         let mut rng = thread_rng();
@@ -210,11 +240,9 @@ fn calc_spawn_pos(map: &map::Map, monsters: &Vec<Monster>) -> Position {
     }
 }
 
-struct App {
-}
+struct App {}
 
 fn main() {
-
     let player = Player {
         level: 1,
 
@@ -237,7 +265,6 @@ fn main() {
 
         map: map::null(),
     };
-
 
     dungeon.gen_floor();
 
@@ -302,10 +329,11 @@ fn main() {
         } else if dungeon.map.is_exit(&next_pos) {
             dungeon.floor += 1;
             if dungeon.floor > dungeon.max_floor {
-
-                dungeon.status = format!("Done. {}/{}", dungeon.floor, dungeon.max_floor).to_string();
+                dungeon.status =
+                    format!("Done. {}/{}", dungeon.floor, dungeon.max_floor).to_string();
             } else {
-                dungeon.status = format!("Floor {}/{}", dungeon.floor, dungeon.max_floor).to_string();
+                dungeon.status =
+                    format!("Floor {}/{}", dungeon.floor, dungeon.max_floor).to_string();
 
                 dungeon.gen_floor();
                 // TODO update map and positions.
@@ -322,9 +350,13 @@ fn main() {
         write_game!(stdout, dungeon);
     }
 
-    write!(stdout, "{}{}{}",
-           termion::clear::All,
-           termion::cursor::Goto(1, 1),
-           termion::cursor::Show).unwrap();
+    write!(
+        stdout,
+        "{}{}{}",
+        termion::clear::All,
+        termion::cursor::Goto(1, 1),
+        termion::cursor::Show
+    )
+    .unwrap();
     stdout.flush().unwrap();
 }

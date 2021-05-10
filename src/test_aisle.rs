@@ -1,4 +1,3 @@
-
 #[derive(Debug)]
 struct Room {
     x: usize,
@@ -30,7 +29,6 @@ struct Point {
 }
 
 fn create_aisle(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
-
     if link == LinkType::UP {
         return create_aisle(b, a, LinkType::DOWN);
     }
@@ -38,10 +36,8 @@ fn create_aisle(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
         return create_aisle(b, a, LinkType::RIGHT);
     }
 
-
     // RIGHT: a.right => b.left
     if link == LinkType::RIGHT {
-
         let start_x = a.x + a.w;
         let start_y_min = a.y;
         let start_y_max = a.y + a.h;
@@ -58,13 +54,14 @@ fn create_aisle(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
         let mut v = Vec::new();
         for i in start_x..=end_x {
             if i < turn_x {
-                v.push(Point { x: i, y: start_y});
+                v.push(Point { x: i, y: start_y });
             } else if i == turn_x {
                 for j in usize::min(start_y, end_y)..=usize::max(start_y, end_y) {
                     v.push(Point { x: i, y: j });
                 }
-            } else { // i > turn_x
-                v.push(Point { x: i, y: end_y});
+            } else {
+                // i > turn_x
+                v.push(Point { x: i, y: end_y });
             }
         }
         return v;
@@ -87,23 +84,21 @@ fn create_aisle(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
     let mut v = Vec::new();
     for i in start_y..=end_y {
         if i < turn_y {
-            v.push(Point { x: start_x, y: i});
+            v.push(Point { x: start_x, y: i });
         } else if i == turn_y {
             for j in usize::min(start_x, end_x)..=usize::max(start_x, end_x) {
                 v.push(Point { x: j, y: i });
             }
-        } else { // i > turn_x
-            v.push(Point { x: end_x, y: i});
+        } else {
+            // i > turn_x
+            v.push(Point { x: end_x, y: i });
         }
     }
 
     return v;
-
 }
 
-
 fn main() {
-
     let h = 50;
     let w = 100;
 
@@ -143,7 +138,6 @@ fn main() {
         output[i.y][i.x] = '-';
         //output[i.x][i.y] = '-';
     }
-
 
     for j in output {
         for i in j {

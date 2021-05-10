@@ -1,4 +1,3 @@
-
 use rand::{thread_rng, Rng};
 
 use crate::etc::*;
@@ -30,7 +29,13 @@ struct Room {
 
 impl Room {
     fn new() -> Self {
-        Self { x: 0, y: 0, w: 0, h: 0, idx: 0 }
+        Self {
+            x: 0,
+            y: 0,
+            w: 0,
+            h: 0,
+            idx: 0,
+        }
     }
 }
 
@@ -80,24 +85,22 @@ impl Area {
         }
     }
 
-    fn is_link(&self, target: & Area, cut_type: CutType) -> bool {
+    fn is_link(&self, target: &Area, cut_type: CutType) -> bool {
         // TODO 通路分の余白は隣接判定に含めたくない
         match cut_type {
             CutType::Horizontal => {
-                ! (self.y > (target.y + target.h) || target.y > (self.y + self.h))
+                !(self.y > (target.y + target.h) || target.y > (self.y + self.h))
             }
-            CutType::Vertical => {
-                ! (self.x > (target.x + target.w) || target.x > (self.x + self.w))
-            }
+            CutType::Vertical => !(self.x > (target.x + target.w) || target.x > (self.x + self.w)),
         }
     }
 }
 
-fn calc_weight(a: & Area) -> usize {
+fn calc_weight(a: &Area) -> usize {
     a.w * a.h
 }
 
-fn choose(areas: & Vec<Area>) -> usize {
+fn choose(areas: &Vec<Area>) -> usize {
     //let mut rnd = rand::thread_rng();
     //let total_weight = areas.iter().map(calc_weight).sum();
     //let target = rnd.gen_range(0..total_weight);
@@ -167,7 +170,6 @@ fn cut_areas(areas: &mut Vec<Area>) {
         let cut_type = &cut_type_list[rnd.gen_range(0..cut_type_list.len())];
 
         let new_idx = areas.len();
-
 
         let mut area = Area::new();
         area.idx = new_idx;
@@ -276,7 +278,6 @@ fn cut_areas(areas: &mut Vec<Area>) {
                 }
             }
             CutType::Vertical => {
-
                 for i in base.link.right {
                     let mut target = None;
                     let mut link = areas[i].link.clone();
@@ -331,7 +332,7 @@ fn cut_areas(areas: &mut Vec<Area>) {
                         if !base.is_link(&areas[i], CutType::Vertical) {
                             //base.link.down.remove(i);
                             //areas[i].link.up.remove(idx);
-                        
+
                             // TODO リファクタリング vec.remove_item
                             {
                                 let ii = base.link.down.iter().position(|x| *x == i);
@@ -365,10 +366,10 @@ fn fix_room_size(areas: &mut Vec<Area>) {
 
     for a in areas {
         println!("{:?}", a);
-        a.room.w = rnd.gen_range(MIN_ROOM_SIZE .. a.w - 2 * MIN_AISLE_SIZE);
-        a.room.h = rnd.gen_range(MIN_ROOM_SIZE .. a.h - 2 * MIN_AISLE_SIZE);
-        a.room.x = rnd.gen_range(a.x + MIN_AISLE_SIZE .. a.x + a.w - a.room.w - MIN_AISLE_SIZE);
-        a.room.y = rnd.gen_range(a.y + MIN_AISLE_SIZE .. a.y + a.h - a.room.h - MIN_AISLE_SIZE);
+        a.room.w = rnd.gen_range(MIN_ROOM_SIZE..a.w - 2 * MIN_AISLE_SIZE);
+        a.room.h = rnd.gen_range(MIN_ROOM_SIZE..a.h - 2 * MIN_AISLE_SIZE);
+        a.room.x = rnd.gen_range(a.x + MIN_AISLE_SIZE..a.x + a.w - a.room.w - MIN_AISLE_SIZE);
+        a.room.y = rnd.gen_range(a.y + MIN_AISLE_SIZE..a.y + a.h - a.room.h - MIN_AISLE_SIZE);
     }
 }
 
@@ -394,11 +395,15 @@ struct Aisle {
 
 impl Aisle {
     fn new(from: usize, to: usize, link_type: LinkType) -> Aisle {
-        Aisle { from, to, link_type }
+        Aisle {
+            from,
+            to,
+            link_type,
+        }
     }
 }
 
-fn create_aisle_points(a: & Room, b: & Room, link: LinkType) -> Vec<Point> {
+fn create_aisle_points(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
     if link == LinkType::UP {
         return create_aisle_points(b, a, LinkType::DOWN);
     }
@@ -406,10 +411,8 @@ fn create_aisle_points(a: & Room, b: & Room, link: LinkType) -> Vec<Point> {
         return create_aisle_points(b, a, LinkType::RIGHT);
     }
 
-
     // RIGHT: a.right => b.left
     if link == LinkType::RIGHT {
-
         let start_x = a.x + a.w;
         let start_y_min = a.y;
         let start_y_max = a.y + a.h;
@@ -426,13 +429,14 @@ fn create_aisle_points(a: & Room, b: & Room, link: LinkType) -> Vec<Point> {
         let mut v = Vec::new();
         for i in start_x..=end_x {
             if i < turn_x {
-                v.push(Point { x: i, y: start_y});
+                v.push(Point { x: i, y: start_y });
             } else if i == turn_x {
                 for j in usize::min(start_y, end_y)..=usize::max(start_y, end_y) {
                     v.push(Point { x: i, y: j });
                 }
-            } else { // i > turn_x
-                v.push(Point { x: i, y: end_y});
+            } else {
+                // i > turn_x
+                v.push(Point { x: i, y: end_y });
             }
         }
         return v;
@@ -455,30 +459,29 @@ fn create_aisle_points(a: & Room, b: & Room, link: LinkType) -> Vec<Point> {
     let mut v = Vec::new();
     for i in start_y..=end_y {
         if i < turn_y {
-            v.push(Point { x: start_x, y: i});
+            v.push(Point { x: start_x, y: i });
         } else if i == turn_y {
             for j in usize::min(start_x, end_x)..=usize::max(start_x, end_x) {
                 v.push(Point { x: j, y: i });
             }
-        } else { // i > turn_x
-            v.push(Point { x: end_x, y: i});
+        } else {
+            // i > turn_x
+            v.push(Point { x: end_x, y: i });
         }
     }
 
     return v;
 }
 
-fn create_aisles(areas: & Vec<Area>) -> Vec<Point> {
+fn create_aisles(areas: &Vec<Area>) -> Vec<Point> {
     let mut rnd = rand::thread_rng();
     let mut aisles = Vec::new();
-
 
     let mut connected_flgs = Vec::new();
     for _i in 0..areas.len() {
         connected_flgs.push(false);
     }
     connected_flgs[0] = true;
-
 
     while connected_flgs.iter().any(|&x| !x) {
         let mut candidates = Vec::new();
@@ -518,7 +521,6 @@ fn create_aisles(areas: & Vec<Area>) -> Vec<Point> {
         aisles.push(c);
     }
 
-    
     let mut rest = Vec::new();
     for area in areas {
         for i in &area.link.up {
@@ -565,13 +567,23 @@ fn create_aisles(areas: & Vec<Area>) -> Vec<Point> {
 
     let mut v = Vec::new();
     for a in aisles {
-        v = [v, create_aisle_points(&areas[a.from].room, &areas[a.to].room, a.link_type)].concat();
+        v = [
+            v,
+            create_aisle_points(&areas[a.from].room, &areas[a.to].room, a.link_type),
+        ]
+        .concat();
     }
     return v;
 }
 
 //fn to_char_all(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>) -> Vec<Vec<char>> {
-fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>, exit_point: & Point) -> Vec<String> {
+fn to_strings(
+    height: usize,
+    width: usize,
+    areas: &Vec<Area>,
+    aisles: &Vec<Point>,
+    exit_point: &Point,
+) -> Vec<String> {
     let mut output = Vec::new();
 
     for _i in 0..height {
@@ -607,12 +619,12 @@ fn to_strings(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Poi
     }
 
     return ret;
-//    for i in 0..height {
-//        for j in 0..width {
-//            print!("{}", output[i][j]);
-//        }
-//        println!();
-//    }
+    //    for i in 0..height {
+    //        for j in 0..width {
+    //            print!("{}", output[i][j]);
+    //        }
+    //        println!();
+    //    }
 }
 
 //pub fn gen_test() -> Vec<String> {
@@ -643,7 +655,6 @@ pub fn null() -> Map {
 }
 
 pub fn gen() -> Map {
-
     //let height = 100;
     //let width = 200;
     let height = 50;
@@ -669,15 +680,12 @@ pub fn gen() -> Map {
         y: room.y + rng.gen_range(0..room.h),
     };
 
-
     // stringに情報を落とし込んでいるけど、落とし込まずに持っていたほうが後々楽か?
     return Map {
         cells: to_strings(height, width, &areas, &aisles, &exit_point),
         exit_point,
     };
 }
-
-
 
 pub struct Cell {
     pub cell_type: i32,
@@ -714,5 +722,3 @@ impl Map {
     //    };
     //}
 }
-
-

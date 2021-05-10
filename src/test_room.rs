@@ -12,7 +12,6 @@ use rand::Rng;
 // コードを拡張しながら作っているため名前の対応が多少変だが、
 // 区画をRoom、部屋をAreaとする. 本実装では逆にした方がいいだろう.
 
-
 #[derive(Clone, Debug)]
 struct Area {
     pub x: usize,
@@ -23,7 +22,12 @@ struct Area {
 
 impl Area {
     fn new() -> Area {
-        Area { x: 0, y: 0, w: 0, h: 0 }
+        Area {
+            x: 0,
+            y: 0,
+            w: 0,
+            h: 0,
+        }
     }
 }
 
@@ -71,10 +75,10 @@ impl Room {
 #[derive(PartialEq)]
 enum CutType {
     Vertical,
-    Horizontal
+    Horizontal,
 }
 
-fn calc_total(rooms: & Vec<Room>) -> usize {
+fn calc_total(rooms: &Vec<Room>) -> usize {
     let mut total = 0;
     for r in rooms {
         total += r.h * r.w;
@@ -82,10 +86,9 @@ fn calc_total(rooms: & Vec<Room>) -> usize {
     return total;
 }
 
-fn choose(rooms: & Vec<Room>) -> usize {
+fn choose(rooms: &Vec<Room>) -> usize {
     let mut rnd = rand::thread_rng();
     let target = rnd.gen_range(0..calc_total(&rooms));
-
 
     let mut sum = 0;
     for (i, r) in rooms.iter().enumerate() {
@@ -120,8 +123,6 @@ fn cut_rooms(rooms: &mut Vec<Room>) {
         let cut_type = &vec![CutType::Horizontal, CutType::Vertical][rnd.gen_range(0..2)];
         //let cut_type = CutType::Vertical;
 
-
-
         let new_idx = rooms.len();
 
         if rooms[idx].w < 14 || rooms[idx].h < 14 {
@@ -129,7 +130,6 @@ fn cut_rooms(rooms: &mut Vec<Room>) {
             // あまって短い方で切らないように.
             continue;
         }
-
 
         let mut base = rooms[idx].clone();
         let mut room = Room::new();
@@ -161,7 +161,7 @@ fn cut_rooms(rooms: &mut Vec<Room>) {
         }
 
         // リンク関係を修正
-        match cut_type  {
+        match cut_type {
             CutType::Horizontal => {
                 for i in base.link.down {
                     let mut target = None;
@@ -221,7 +221,6 @@ fn cut_rooms(rooms: &mut Vec<Room>) {
         rooms[idx] = base;
         rooms.push(room);
     }
-
 }
 
 // fix_room
@@ -234,9 +233,9 @@ fn resize_rooms(rooms: &mut Vec<Room>) {
         r.area.w = rnd.gen_range(3..r.w - 2 * edge);
         r.area.h = rnd.gen_range(3..r.h - 2 * edge);
         println!("x:{}..{}", r.x + edge, r.x + r.w - r.area.w - edge);
-        r.area.x = rnd.gen_range(r.x + edge .. r.x + r.w - r.area.w - edge);
+        r.area.x = rnd.gen_range(r.x + edge..r.x + r.w - r.area.w - edge);
         println!("y:{}..{}", r.y + edge, r.y + r.h - r.area.h - edge);
-        r.area.y = rnd.gen_range(r.y + edge .. r.y + r.h - r.area.h - edge);
+        r.area.y = rnd.gen_range(r.y + edge..r.y + r.h - r.area.h - edge);
     }
 }
 
@@ -247,7 +246,6 @@ fn gen(rooms: &mut Vec<Room>) {
 }
 
 fn main() {
-
     let height = 100;
     let width = 200;
     let mut rooms = Vec::new();
@@ -260,9 +258,8 @@ fn main() {
 
     //let mut links = Vec::new();
     //gen(&mut rooms, &mut links);
-    
-    gen(&mut rooms);
 
+    gen(&mut rooms);
 
     let mut output = Vec::new();
 
@@ -278,7 +275,6 @@ fn main() {
         }
         output.push(row);
     }
-
 
     for r in rooms {
         println!("{:?}", r);
@@ -298,7 +294,6 @@ fn main() {
         }
         println!();
     }
- 
 }
 
 /*
