@@ -151,7 +151,7 @@ struct Monster {
 
 macro_rules! write_game {
     ($stdout:expr, $dungeon:expr) => {
-        write!($stdout, "{}", termion::clear::All).unwrap();
+        //write!($stdout, "{}", termion::clear::All).unwrap();
 
         write!(
             $stdout,
