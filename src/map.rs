@@ -1,4 +1,4 @@
-use rand::{thread_rng, Rng};
+use rand::prelude::*;
 
 use crate::etc::*;
 
@@ -101,7 +101,7 @@ fn calc_weight(a: &Area) -> usize {
 }
 
 fn choose(areas: &Vec<Area>) -> usize {
-    //let mut rnd = rand::thread_rng();
+    //let mut rnd = thread_rng();
     //let total_weight = areas.iter().map(calc_weight).sum();
     //let target = rnd.gen_range(0..total_weight);
 
@@ -113,7 +113,7 @@ fn choose(areas: &Vec<Area>) -> usize {
     //    }
     //}
 
-    let mut rnd = rand::thread_rng();
+    let mut rnd = thread_rng();
     let mut total_weight = 0;
     for a in areas {
         if a.w >= MIN_CUT_SIZE || a.h >= MIN_CUT_SIZE {
@@ -146,7 +146,7 @@ fn calc_cut_size(size: usize) -> usize {
 }
 
 fn cut_areas(areas: &mut Vec<Area>) {
-    let mut rnd = rand::thread_rng();
+    let mut rnd = thread_rng();
 
     // TODO 分割回数
     for _i in 0..CUT_TRIAL {
@@ -362,7 +362,7 @@ fn cut_areas(areas: &mut Vec<Area>) {
 }
 
 fn fix_room_size(areas: &mut Vec<Area>) {
-    let mut rnd = rand::thread_rng();
+    let mut rnd = thread_rng();
 
     for a in areas {
         println!("{:?}", a);
@@ -474,7 +474,7 @@ fn create_aisle_points(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
 }
 
 fn create_aisles(areas: &Vec<Area>) -> Vec<Point> {
-    let mut rnd = rand::thread_rng();
+    let mut rnd = thread_rng();
     let mut aisles = Vec::new();
 
     let mut connected_flgs = Vec::new();
