@@ -23,6 +23,6 @@ name = "map"
 path = "src/test_map.rs"
 
 [dependencies]
-rand = "*"
+rand = "0.8"
 termion = "*"
 
