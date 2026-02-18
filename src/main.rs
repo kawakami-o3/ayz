@@ -1,10 +1,13 @@
-extern crate termion;
-
 use ayz::etc::*;
 use ayz::map;
+use crossterm::{
+    cursor::{Hide, MoveTo, Show},
+    event::{self, Event, KeyCode, KeyEventKind},
+    queue,
+    terminal::{self, Clear, ClearType},
+};
 use rand::{thread_rng, Rng};
-use std::io::{stdin, stdout, Read, Write};
-use termion::raw::IntoRawMode;
+use std::io::{stdout, Write};
 
 // TODO マップを文字列として管理しているのでcharに実装しているが、
 //      特殊地形の管理などを考えると位置の移動などがあるため、
@@ -151,54 +154,45 @@ struct Monster {
 
 macro_rules! write_game {
     ($stdout:expr, $dungeon:expr) => {
-        //write!($stdout, "{}", termion::clear::All).unwrap();
-
+        queue!($stdout, MoveTo(0, 0)).unwrap();
         write!(
             $stdout,
-            "{}> p({}, {}). {}",
-            termion::cursor::Goto(1, 1),
+            "> p({}, {}). {}",
             $dungeon.player.pos.x,
             $dungeon.player.pos.y,
             $dungeon.status
         )
         .unwrap();
 
-        let x_offset = 1;
-        let y_offset = 2;
+        let x_offset: u16 = 0;
+        let y_offset: u16 = 1;
 
         for (i, val) in $dungeon.map.cells.iter().enumerate() {
             for (j, v) in val.chars().enumerate() {
                 let c = if v.is_room() { '.' } else { v };
-                write!(
-                    $stdout,
-                    "{}{}",
-                    termion::cursor::Goto(x_offset + j as u16, y_offset + i as u16),
-                    c
-                )
-                .unwrap();
+                queue!($stdout, MoveTo(x_offset + j as u16, y_offset + i as u16)).unwrap();
+                write!($stdout, "{}", c).unwrap();
             }
         }
 
         let player = &$dungeon.player;
-        write!(
+        queue!(
             $stdout,
-            "{}{}",
-            termion::cursor::Goto(
+            MoveTo(
                 x_offset + player.pos.x as u16,
                 y_offset + player.pos.y as u16
-            ),
-            player.symbol
+            )
         )
         .unwrap();
+        write!($stdout, "{}", player.symbol).unwrap();
 
         for i in $dungeon.monsters.iter() {
-            write!(
+            queue!(
                 $stdout,
-                "{}{}",
-                termion::cursor::Goto(x_offset + i.pos.x as u16, y_offset + i.pos.y as u16),
-                i.symbol
+                MoveTo(x_offset + i.pos.x as u16, y_offset + i.pos.y as u16)
             )
             .unwrap();
+            write!($stdout, "{}", i.symbol).unwrap();
         }
 
         $stdout.flush().unwrap();
@@ -268,95 +262,92 @@ fn main() {
 
     dungeon.gen_floor();
 
-    let stdout = stdout();
-    let mut stdout = stdout.lock().into_raw_mode().unwrap();
-    let stdin = stdin();
-    let stdin = stdin.lock();
+    terminal::enable_raw_mode().unwrap();
 
-    write!(stdout, "{}", termion::cursor::Hide).unwrap();
+    let mut stdout = stdout();
+    queue!(stdout, Hide).unwrap();
     stdout.flush().unwrap();
 
     write_game!(stdout, dungeon);
 
-    let mut bytes = stdin.bytes();
     loop {
-        let b = bytes.next().unwrap().unwrap();
+        match event::read().unwrap() {
+            Event::Key(key) if key.kind == KeyEventKind::Press => {
+                let mut next_pos = dungeon.player.pos.clone();
+                match key.code {
+                    KeyCode::Char('q') => {
+                        break;
+                    }
+                    KeyCode::Char('h') => {
+                        next_pos = next_pos.plus(&L);
+                        dungeon.player.direction = L;
+                    }
+                    KeyCode::Char('j') => {
+                        next_pos = next_pos.plus(&D);
+                        dungeon.player.direction = D;
+                    }
+                    KeyCode::Char('k') => {
+                        next_pos = next_pos.plus(&U);
+                        dungeon.player.direction = U;
+                    }
+                    KeyCode::Char('l') => {
+                        next_pos = next_pos.plus(&R);
+                        dungeon.player.direction = R;
+                    }
+                    KeyCode::Char('y') => {
+                        next_pos = next_pos.plus(&UL);
+                        dungeon.player.direction = UL;
+                    }
+                    KeyCode::Char('u') => {
+                        next_pos = next_pos.plus(&UR);
+                        dungeon.player.direction = UR;
+                    }
+                    KeyCode::Char('n') => {
+                        next_pos = next_pos.plus(&DL);
+                        dungeon.player.direction = DL;
+                    }
+                    KeyCode::Char('m') => {
+                        next_pos = next_pos.plus(&DR);
+                        dungeon.player.direction = DR;
+                    }
+                    KeyCode::Char(c) => {
+                        dungeon.status = format!("{}", c);
+                    }
+                    _ => {
+                        continue;
+                    }
+                }
 
-        let mut next_pos = dungeon.player.pos.clone();
-        match b {
-            b'q' => {
-                break;
+                if dungeon.floor > dungeon.max_floor {
+                    dungeon.status = String::from("Done.");
+                } else if dungeon.map.is_exit(&next_pos) {
+                    dungeon.floor += 1;
+                    if dungeon.floor > dungeon.max_floor {
+                        dungeon.status =
+                            format!("Done. {}/{}", dungeon.floor, dungeon.max_floor).to_string();
+                    } else {
+                        dungeon.status =
+                            format!("Floor {}/{}", dungeon.floor, dungeon.max_floor).to_string();
+
+                        dungeon.gen_floor();
+                        // TODO update map and positions.
+                    }
+                } else if dungeon.can_move(&next_pos) {
+                    dungeon.player.pos = next_pos;
+                    dungeon.status = String::from("move");
+
+                    dungeon.move_monsters();
+                } else {
+                    dungeon.status = String::from("Failed to move");
+                }
+
+                write_game!(stdout, dungeon);
             }
-            b'h' => {
-                next_pos = next_pos.plus(&L);
-                dungeon.player.direction = L;
-            }
-            b'j' => {
-                next_pos = next_pos.plus(&D);
-                dungeon.player.direction = D;
-            }
-            b'k' => {
-                next_pos = next_pos.plus(&U);
-                dungeon.player.direction = U;
-            }
-            b'l' => {
-                next_pos = next_pos.plus(&R);
-                dungeon.player.direction = R;
-            }
-            b'y' => {
-                next_pos = next_pos.plus(&UL);
-                dungeon.player.direction = UL;
-            }
-            b'u' => {
-                next_pos = next_pos.plus(&UR);
-                dungeon.player.direction = UR;
-            }
-            b'n' => {
-                next_pos = next_pos.plus(&DL);
-                dungeon.player.direction = DL;
-            }
-            b'm' => {
-                next_pos = next_pos.plus(&DR);
-                dungeon.player.direction = DR;
-            }
-            a => {
-                dungeon.status = format!("{}", a);
-            }
+            _ => {}
         }
-
-        if dungeon.floor > dungeon.max_floor {
-            dungeon.status = String::from("Done.");
-        } else if dungeon.map.is_exit(&next_pos) {
-            dungeon.floor += 1;
-            if dungeon.floor > dungeon.max_floor {
-                dungeon.status =
-                    format!("Done. {}/{}", dungeon.floor, dungeon.max_floor).to_string();
-            } else {
-                dungeon.status =
-                    format!("Floor {}/{}", dungeon.floor, dungeon.max_floor).to_string();
-
-                dungeon.gen_floor();
-                // TODO update map and positions.
-            }
-        } else if dungeon.can_move(&next_pos) {
-            dungeon.player.pos = next_pos;
-            dungeon.status = String::from("move");
-
-            dungeon.move_monsters();
-        } else {
-            dungeon.status = String::from("Failed to move");
-        }
-
-        write_game!(stdout, dungeon);
     }
 
-    write!(
-        stdout,
-        "{}{}{}",
-        termion::clear::All,
-        termion::cursor::Goto(1, 1),
-        termion::cursor::Show
-    )
-    .unwrap();
+    queue!(stdout, Clear(ClearType::All), MoveTo(0, 0), Show).unwrap();
     stdout.flush().unwrap();
+    terminal::disable_raw_mode().unwrap();
 }
