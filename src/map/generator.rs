@@ -1,18 +1,15 @@
 use rand::prelude::*;
 
-use crate::etc::*;
+use crate::core::types::Position;
+use super::cell::{GameMap, MapCell, Terrain};
 
 const MIN_ROOM_SIZE: usize = 3;
 const MIN_AISLE_SIZE: usize = 2;
-const MIN_CUT_SIZE: usize = 2 * (MIN_ROOM_SIZE + MIN_AISLE_SIZE * 2); // 部屋は最小 3, 通路の余白 2x2 とすると分割前の最小サイズは 14.
+const MIN_CUT_SIZE: usize = 2 * (MIN_ROOM_SIZE + MIN_AISLE_SIZE * 2);
 const CUT_TRIAL: usize = 9;
 
-const WALL: char = ' ';
-// TODO 特殊地形は別管理にした方がよい
-const EXIT: char = '+';
-
 #[derive(Clone, Debug)]
-pub struct Point {
+struct Point {
     x: usize,
     y: usize,
 }
@@ -23,7 +20,6 @@ struct Room {
     y: usize,
     w: usize,
     h: usize,
-
     idx: usize,
 }
 
@@ -39,7 +35,6 @@ impl Room {
     }
 }
 
-// 区画切り分け時にはちゃんと隣接しているかチェックする必要がある
 #[derive(Clone, Debug)]
 struct Link {
     up: Vec<usize>,
@@ -65,9 +60,7 @@ struct Area {
     y: usize,
     w: usize,
     h: usize,
-
     idx: usize,
-
     link: Link,
     room: Room,
 }
@@ -85,13 +78,14 @@ impl Area {
         }
     }
 
-    fn is_link(&self, target: &Area, cut_type: CutType) -> bool {
-        // TODO 通路分の余白は隣接判定に含めたくない
+    fn is_link(&self, target: &Area, cut_type: &CutType) -> bool {
         match cut_type {
             CutType::Horizontal => {
                 !(self.y > (target.y + target.h) || target.y > (self.y + self.h))
             }
-            CutType::Vertical => !(self.x > (target.x + target.w) || target.x > (self.x + self.w)),
+            CutType::Vertical => {
+                !(self.x > (target.x + target.w) || target.x > (self.x + self.w))
+            }
         }
     }
 }
@@ -100,19 +94,7 @@ fn calc_weight(a: &Area) -> usize {
     a.w * a.h
 }
 
-fn choose(areas: &Vec<Area>) -> usize {
-    //let mut rnd = thread_rng();
-    //let total_weight = areas.iter().map(calc_weight).sum();
-    //let target = rnd.gen_range(0..total_weight);
-
-    //let mut sum = 0;
-    //for (i, a) in areas.iter().enumerate() {
-    //    sum += calc_weight(a);
-    //    if target < sum {
-    //        return i;
-    //    }
-    //}
-
+fn choose(areas: &[Area]) -> usize {
     let mut rnd = thread_rng();
     let mut total_weight = 0;
     for a in areas {
@@ -131,7 +113,7 @@ fn choose(areas: &Vec<Area>) -> usize {
             }
         }
     }
-    return 0;
+    0
 }
 
 #[derive(PartialEq, Debug)]
@@ -140,7 +122,6 @@ enum CutType {
     Horizontal,
 }
 
-// TODO 分割サイズ
 fn calc_cut_size(size: usize) -> usize {
     size / 2
 }
@@ -148,18 +129,15 @@ fn calc_cut_size(size: usize) -> usize {
 fn cut_areas(areas: &mut Vec<Area>) {
     let mut rnd = thread_rng();
 
-    // TODO 分割回数
     for _i in 0..CUT_TRIAL {
         let idx = choose(areas);
 
-        // TODO リファクタリング. chooseの中でもサイズのチェックを行っている.
         if areas[idx].w < MIN_CUT_SIZE && areas[idx].h < MIN_CUT_SIZE {
             continue;
         }
 
         let mut base = areas[idx].clone();
 
-        // TODO 対象区画のサイズに応じて分割タイプを変更
         let mut cut_type_list = Vec::new();
         if base.w >= MIN_CUT_SIZE {
             cut_type_list.push(CutType::Vertical);
@@ -174,36 +152,28 @@ fn cut_areas(areas: &mut Vec<Area>) {
         let mut area = Area::new();
         area.idx = new_idx;
 
-        // サイズ修正
         match cut_type {
             CutType::Horizontal => {
                 let new_size = calc_cut_size(base.h);
-
                 area.x = base.x;
                 area.y = base.y + new_size;
                 area.w = base.w;
                 area.h = base.h - new_size;
-
                 base.h = new_size;
             }
             CutType::Vertical => {
                 let new_size = calc_cut_size(base.w);
-
                 area.x = base.x + new_size;
                 area.y = base.y;
                 area.w = base.w - new_size;
                 area.h = base.h;
-
                 base.w = new_size;
             }
         }
 
-        // 隣接対象修正
-        // TODO 本当に隣接しているかをちゃんとみる必要がある
-        // TODO 隣接情報は最後に一括で構築するほうが楽かも
         match cut_type {
             CutType::Horizontal => {
-                for i in base.link.down {
+                for i in base.link.down.clone() {
                     let mut target = None;
                     let mut link = areas[i].link.clone();
                     for (ii, j) in link.up.iter().enumerate() {
@@ -222,55 +192,36 @@ fn cut_areas(areas: &mut Vec<Area>) {
                 base.link.down = vec![new_idx];
                 area.link.up = vec![idx];
 
-                // 右隣接
                 {
                     let old_link = base.link.right.clone();
                     for i in old_link {
-                        if !base.is_link(&areas[i], CutType::Horizontal) {
-                            // TODO リファクタリング vec.remove_item
-                            {
-                                let ii = base.link.right.iter().position(|x| *x == i);
-                                if let Some(target_i) = ii {
-                                    base.link.right.remove(target_i);
-                                }
+                        if !base.is_link(&areas[i], &CutType::Horizontal) {
+                            if let Some(ii) = base.link.right.iter().position(|x| *x == i) {
+                                base.link.right.remove(ii);
                             }
-                            {
-                                let ii = areas[i].link.left.iter().position(|x| *x == idx);
-                                if let Some(target_i) = ii {
-                                    areas[i].link.left.remove(target_i);
-                                }
+                            if let Some(ii) = areas[i].link.left.iter().position(|x| *x == idx) {
+                                areas[i].link.left.remove(ii);
                             }
                         }
-                        if area.is_link(&areas[i], CutType::Horizontal) {
+                        if area.is_link(&areas[i], &CutType::Horizontal) {
                             area.link.right.push(i);
                             areas[i].link.left.push(new_idx);
                         }
                     }
                 }
 
-                // 左隣接
                 {
                     let old_link = base.link.left.clone();
                     for i in old_link {
-                        if !base.is_link(&areas[i], CutType::Horizontal) {
-                            //base.link.left.remove_itemp(i);
-                            //areas[i].link.right.remove_item(idx);
-
-                            // TODO リファクタリング vec.remove_item
-                            {
-                                let ii = base.link.left.iter().position(|x| *x == i);
-                                if let Some(target_i) = ii {
-                                    base.link.left.remove(target_i);
-                                }
+                        if !base.is_link(&areas[i], &CutType::Horizontal) {
+                            if let Some(ii) = base.link.left.iter().position(|x| *x == i) {
+                                base.link.left.remove(ii);
                             }
-                            {
-                                let ii = areas[i].link.right.iter().position(|x| *x == idx);
-                                if let Some(target_i) = ii {
-                                    areas[i].link.right.remove(target_i);
-                                }
+                            if let Some(ii) = areas[i].link.right.iter().position(|x| *x == idx) {
+                                areas[i].link.right.remove(ii);
                             }
                         }
-                        if area.is_link(&areas[i], CutType::Horizontal) {
+                        if area.is_link(&areas[i], &CutType::Horizontal) {
                             area.link.left.push(i);
                             areas[i].link.right.push(new_idx);
                         }
@@ -278,7 +229,7 @@ fn cut_areas(areas: &mut Vec<Area>) {
                 }
             }
             CutType::Vertical => {
-                for i in base.link.right {
+                for i in base.link.right.clone() {
                     let mut target = None;
                     let mut link = areas[i].link.clone();
                     for (ii, j) in link.left.iter().enumerate() {
@@ -297,57 +248,36 @@ fn cut_areas(areas: &mut Vec<Area>) {
                 base.link.right = vec![new_idx];
                 area.link.left = vec![idx];
 
-                // 上隣接
                 {
                     let old_link = base.link.up.clone();
                     for i in old_link {
-                        if !base.is_link(&areas[i], CutType::Vertical) {
-                            //base.link.up.remove_item(i);
-                            //areas[i].link.down.remove_item(idx);
-                            // TODO リファクタリング vec.remove_item
-                            {
-                                let ii = base.link.up.iter().position(|x| *x == i);
-                                if let Some(target_i) = ii {
-                                    base.link.up.remove(target_i);
-                                }
+                        if !base.is_link(&areas[i], &CutType::Vertical) {
+                            if let Some(ii) = base.link.up.iter().position(|x| *x == i) {
+                                base.link.up.remove(ii);
                             }
-                            {
-                                let ii = areas[i].link.down.iter().position(|x| *x == idx);
-                                if let Some(target_i) = ii {
-                                    areas[i].link.down.remove(target_i);
-                                }
+                            if let Some(ii) = areas[i].link.down.iter().position(|x| *x == idx) {
+                                areas[i].link.down.remove(ii);
                             }
                         }
-                        if area.is_link(&areas[i], CutType::Vertical) {
+                        if area.is_link(&areas[i], &CutType::Vertical) {
                             area.link.up.push(i);
                             areas[i].link.down.push(new_idx);
                         }
                     }
                 }
 
-                // 下隣接
                 {
                     let old_link = base.link.down.clone();
                     for i in old_link {
-                        if !base.is_link(&areas[i], CutType::Vertical) {
-                            //base.link.down.remove(i);
-                            //areas[i].link.up.remove(idx);
-
-                            // TODO リファクタリング vec.remove_item
-                            {
-                                let ii = base.link.down.iter().position(|x| *x == i);
-                                if let Some(target_i) = ii {
-                                    base.link.down.remove(target_i);
-                                }
+                        if !base.is_link(&areas[i], &CutType::Vertical) {
+                            if let Some(ii) = base.link.down.iter().position(|x| *x == i) {
+                                base.link.down.remove(ii);
                             }
-                            {
-                                let ii = areas[i].link.up.iter().position(|x| *x == idx);
-                                if let Some(target_i) = ii {
-                                    areas[i].link.up.remove(target_i);
-                                }
+                            if let Some(ii) = areas[i].link.up.iter().position(|x| *x == idx) {
+                                areas[i].link.up.remove(ii);
                             }
                         }
-                        if area.is_link(&areas[i], CutType::Vertical) {
+                        if area.is_link(&areas[i], &CutType::Vertical) {
                             area.link.down.push(i);
                             areas[i].link.up.push(new_idx);
                         }
@@ -363,9 +293,7 @@ fn cut_areas(areas: &mut Vec<Area>) {
 
 fn fix_room_size(areas: &mut Vec<Area>) {
     let mut rnd = thread_rng();
-
     for a in areas {
-        println!("{:?}", a);
         a.room.w = rnd.gen_range(MIN_ROOM_SIZE..a.w - 2 * MIN_AISLE_SIZE);
         a.room.h = rnd.gen_range(MIN_ROOM_SIZE..a.h - 2 * MIN_AISLE_SIZE);
         a.room.x = rnd.gen_range(a.x + MIN_AISLE_SIZE..a.x + a.w - a.room.w - MIN_AISLE_SIZE);
@@ -380,10 +308,10 @@ fn generate_rooms(areas: &mut Vec<Area>) {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 enum LinkType {
-    UP,
-    DOWN,
-    LEFT,
-    RIGHT,
+    Up,
+    Down,
+    Left,
+    Right,
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -404,25 +332,21 @@ impl Aisle {
 }
 
 fn create_aisle_points(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
-    if link == LinkType::UP {
-        return create_aisle_points(b, a, LinkType::DOWN);
+    if link == LinkType::Up {
+        return create_aisle_points(b, a, LinkType::Down);
     }
-    if link == LinkType::LEFT {
-        return create_aisle_points(b, a, LinkType::RIGHT);
+    if link == LinkType::Left {
+        return create_aisle_points(b, a, LinkType::Right);
     }
 
-    // RIGHT: a.right => b.left
-    if link == LinkType::RIGHT {
+    if link == LinkType::Right {
         let start_x = a.x + a.w;
         let start_y_min = a.y;
         let start_y_max = a.y + a.h;
-
         let end_x = b.x - 1;
         let end_y_min = b.y;
         let end_y_max = b.y + b.h;
-
         let turn_x = (start_x + end_x) / 2;
-
         let start_y = (start_y_min + start_y_max) / 2;
         let end_y = (end_y_min + end_y_max) / 2;
 
@@ -435,24 +359,20 @@ fn create_aisle_points(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
                     v.push(Point { x: i, y: j });
                 }
             } else {
-                // i > turn_x
                 v.push(Point { x: i, y: end_y });
             }
         }
         return v;
     }
 
-    // DOWN: a.down => b.up
+    // Down
     let start_y = a.y + a.h;
     let start_x_min = a.x;
     let start_x_max = a.x + a.w;
-
     let end_y = b.y - 1;
     let end_x_min = b.x;
     let end_x_max = b.x + b.w;
-
     let turn_y = (start_y + end_y) / 2;
-
     let start_x = (start_x_min + start_x_max) / 2;
     let end_x = (end_x_min + end_x_max) / 2;
 
@@ -465,57 +385,50 @@ fn create_aisle_points(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
                 v.push(Point { x: j, y: i });
             }
         } else {
-            // i > turn_x
             v.push(Point { x: end_x, y: i });
         }
     }
 
-    return v;
+    v
 }
 
-fn create_aisles(areas: &Vec<Area>) -> Vec<Point> {
+fn create_aisles(areas: &[Area]) -> Vec<Point> {
     let mut rnd = thread_rng();
     let mut aisles = Vec::new();
 
-    let mut connected_flgs = Vec::new();
-    for _i in 0..areas.len() {
-        connected_flgs.push(false);
-    }
+    let mut connected_flgs = vec![false; areas.len()];
     connected_flgs[0] = true;
 
     while connected_flgs.iter().any(|&x| !x) {
         let mut candidates = Vec::new();
 
-        // 連結済みの集合から、未連結へと繋がる経路を抽出.
         for (idx, f) in connected_flgs.iter().enumerate() {
             if !f {
                 continue;
             }
-
             for i in &areas[idx].link.up {
                 if !connected_flgs[*i] {
-                    candidates.push(Aisle::new(idx, *i, LinkType::UP));
+                    candidates.push(Aisle::new(idx, *i, LinkType::Up));
                 }
             }
             for i in &areas[idx].link.down {
                 if !connected_flgs[*i] {
-                    candidates.push(Aisle::new(idx, *i, LinkType::DOWN));
+                    candidates.push(Aisle::new(idx, *i, LinkType::Down));
                 }
             }
             for i in &areas[idx].link.left {
                 if !connected_flgs[*i] {
-                    candidates.push(Aisle::new(idx, *i, LinkType::LEFT));
+                    candidates.push(Aisle::new(idx, *i, LinkType::Left));
                 }
             }
             for i in &areas[idx].link.right {
                 if !connected_flgs[*i] {
-                    candidates.push(Aisle::new(idx, *i, LinkType::RIGHT));
+                    candidates.push(Aisle::new(idx, *i, LinkType::Right));
                 }
             }
         }
 
         let target_i = rnd.gen_range(0..candidates.len());
-
         let c = candidates[target_i].clone();
         connected_flgs[c.to] = true;
         aisles.push(c);
@@ -524,33 +437,31 @@ fn create_aisles(areas: &Vec<Area>) -> Vec<Point> {
     let mut rest = Vec::new();
     for area in areas {
         for i in &area.link.up {
-            let a = Aisle::new(area.idx, *i, LinkType::UP);
+            let a = Aisle::new(area.idx, *i, LinkType::Up);
             if !aisles.contains(&a) {
                 rest.push(a);
             }
         }
         for i in &area.link.down {
-            let a = Aisle::new(area.idx, *i, LinkType::DOWN);
+            let a = Aisle::new(area.idx, *i, LinkType::Down);
             if !aisles.contains(&a) {
                 rest.push(a);
             }
         }
         for i in &area.link.left {
-            let a = Aisle::new(area.idx, *i, LinkType::LEFT);
+            let a = Aisle::new(area.idx, *i, LinkType::Left);
             if !aisles.contains(&a) {
                 rest.push(a);
             }
         }
         for i in &area.link.right {
-            let a = Aisle::new(area.idx, *i, LinkType::RIGHT);
+            let a = Aisle::new(area.idx, *i, LinkType::Right);
             if !aisles.contains(&a) {
                 rest.push(a);
             }
         }
     }
 
-    // 追加の通路
-    // TODO 追加ルール. 適当にいくつか追加するより良い方法はあるか.
     if !rest.is_empty() {
         let mut count = rnd.gen_range(0..usize::min(6, rest.len()));
         let mut added = Vec::new();
@@ -567,158 +478,60 @@ fn create_aisles(areas: &Vec<Area>) -> Vec<Point> {
 
     let mut v = Vec::new();
     for a in aisles {
-        v = [
-            v,
-            create_aisle_points(&areas[a.from].room, &areas[a.to].room, a.link_type),
-        ]
-        .concat();
+        v.extend(create_aisle_points(
+            &areas[a.from].room,
+            &areas[a.to].room,
+            a.link_type,
+        ));
     }
-    return v;
+    v
 }
 
-//fn to_char_all(height: usize, width: usize, areas: & Vec<Area>, aisles: & Vec<Point>) -> Vec<Vec<char>> {
-fn to_strings(
-    height: usize,
-    width: usize,
-    areas: &Vec<Area>,
-    aisles: &Vec<Point>,
-    exit_point: &Point,
-) -> Vec<String> {
-    let mut output = Vec::new();
-
-    for _i in 0..height {
-        let mut row = Vec::new();
-        for _j in 0..width {
-            row.push(WALL);
-        }
-        output.push(row);
-    }
-
-    for a in areas {
-        for iy in 0..a.room.h {
-            for ix in 0..a.room.w {
-                let x = a.room.x + ix;
-                let y = a.room.y + iy;
-                //output[y][x] = format!("{}", a.idx).chars().next().unwrap();
-                let c: char = std::char::from_u32(('a' as u32) + a.idx as u32).unwrap();
-                //output[y][x] = format!("{}", ('a' as u32) + a.idx as u32).chars().next().unwrap();
-                output[y][x] = format!("{}", c).chars().next().unwrap();
-            }
-        }
-    }
-
-    for p in aisles {
-        output[p.y][p.x] = '-';
-    }
-
-    output[exit_point.y][exit_point.x] = EXIT;
-
-    let mut ret = Vec::new();
-    for i in output {
-        ret.push(i.into_iter().collect());
-    }
-
-    return ret;
-    //    for i in 0..height {
-    //        for j in 0..width {
-    //            print!("{}", output[i][j]);
-    //        }
-    //        println!();
-    //    }
-}
-
-//pub fn gen_test() -> Vec<String> {
-//    vec![
-//        String::from("##########################################################"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa----####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-####bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa###-----bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("#aaaaaaaaaaaaaaaaaaaaaa########bbbbbbbbbbbbbbbbbbbbbbbbbb#"),
-//        String::from("##########################################################"),
-//    ]
-//}
-
-pub fn null() -> Map {
-    Map {
-        cells: Vec::new(),
-        exit_point: Point { x: 0, y: 0 },
-    }
-}
-
-pub fn gen() -> Map {
-    //let height = 100;
-    //let width = 200;
+pub fn generate() -> GameMap {
     let height = 50;
     let width = 100;
 
     let mut areas = Vec::new();
-
     let mut area = Area::new();
     area.h = height;
     area.w = width;
-
     areas.push(area);
 
     generate_rooms(&mut areas);
-
     let aisles = create_aisles(&areas);
 
-    // TODO シード固定
     let mut rng = thread_rng();
     let room = &areas[rng.gen_range(0..areas.len())].room;
-    let exit_point = Point {
-        x: room.x + rng.gen_range(0..room.w),
-        y: room.y + rng.gen_range(0..room.h),
-    };
+    let exit_pos = Position::new(
+        (room.x + rng.gen_range(0..room.w)) as i32,
+        (room.y + rng.gen_range(0..room.h)) as i32,
+    );
 
-    // stringに情報を落とし込んでいるけど、落とし込まずに持っていたほうが後々楽か?
-    return Map {
-        cells: to_strings(height, width, &areas, &aisles, &exit_point),
-        exit_point,
-    };
-}
+    let mut map = GameMap::new(width, height, exit_pos);
 
-pub struct Cell {
-    pub cell_type: i32,
-}
-
-pub struct Map {
-    pub cells: Vec<String>,
-    pub exit_point: Point,
-}
-
-impl Map {
-    pub fn get_cell(&self, pos: &crate::etc::Position) -> Option<char> {
-        let ln = self.cells.get(pos.y as usize);
-        if ln == None {
-            return None;
+    // Fill rooms
+    for a in &areas {
+        let room_id = a.idx as u8;
+        for iy in 0..a.room.h {
+            for ix in 0..a.room.w {
+                let x = a.room.x + ix;
+                let y = a.room.y + iy;
+                map.set(x, y, MapCell { terrain: Terrain::Floor { room_id } });
+            }
         }
-
-        return ln.unwrap().chars().nth(pos.x as usize);
     }
 
-    pub fn is_wall(&self, pos: &Position) -> bool {
-        return self.get_cell(pos) == Some(WALL);
+    // Fill aisles
+    for p in &aisles {
+        map.set(p.x, p.y, MapCell { terrain: Terrain::Aisle });
     }
 
-    pub fn is_exit(&self, pos: &Position) -> bool {
-        return self.get_cell(pos) == Some(EXIT);
-    }
+    // Set exit
+    map.set(
+        exit_pos.x as usize,
+        exit_pos.y as usize,
+        MapCell { terrain: Terrain::Exit },
+    );
 
-    // is_room はこちらに統一できないか
-    //fn is_room(&self, pos: &Position) -> bool {
-    //    return match self.get_cell(pos) {
-    //        None => false,
-    //        Some(c) => c.is_alphabetic(),
-    //    };
-    //}
+    map
 }
