@@ -15,14 +15,14 @@ Rustの型と1:1で対応し、enumがそのまま記述できるため採用。
 ```
 data/
 └── games/
-    └── shiren/                    // ゲームタイトル単位
+    └── default/                   // ゲームタイトル単位
         ├── game.ron               // ゲーム全体設定
         ├── player.ron             // プレイヤー初期パラメータ・成長テーブル
         ├── balance.ron            // スケーリング・ダメージ式パラメータ
         ├── messages.ron           // メッセージテンプレート
         ├── monsters/
         │   ├── _index.ron         // モンスター一覧
-        │   ├── mamel.ron          // 個別モンスター定義
+        │   ├── slime.ron          // 個別モンスター定義
         │   └── ...
         ├── items/
         │   ├── _index.ron         // アイテム一覧
@@ -38,10 +38,10 @@ data/
 ### モンスター定義
 
 ```ron
-// data/games/shiren/monsters/mamel.ron
+// data/games/default/monsters/slime.ron
 MonsterDef(
-    id: "mamel",
-    name: "マムル",
+    id: "slime",
+    name: "スライム",
     symbol: 'M',
     base_hp: 5,
     base_attack: 2,
@@ -56,10 +56,10 @@ MonsterDef(
 ### アイテム定義
 
 ```ron
-// data/games/shiren/items/herb.ron
+// data/games/default/items/herb.ron
 ItemDef(
     id: "herb",
-    name: "薬草",
+    name: "回復草",
     symbol: '!',
     category: Consumable,
     effect: Heal(25),
@@ -71,15 +71,15 @@ ItemDef(
 ### フロア設定
 
 ```ron
-// data/games/shiren/floors/_index.ron
+// data/games/default/floors/_index.ron
 FloorTable(
     entries: [
         FloorRange(
             floors: (1, 3),
             monster_count: (6, 8),
             monster_pool: [
-                Spawn(id: "mamel", weight: 10),
-                Spawn(id: "chintara", weight: 5),
+                Spawn(id: "slime", weight: 10),
+                Spawn(id: "goblin", weight: 5),
             ],
             item_spawns: [
                 ItemSpawn(id: "herb", count: 3),
@@ -93,7 +93,7 @@ FloorTable(
 ### プレイヤー初期パラメータ・成長テーブル
 
 ```ron
-// data/games/shiren/player.ron
+// data/games/default/player.ron
 PlayerConfig(
     initial_hp: 30,
     initial_attack: 8,

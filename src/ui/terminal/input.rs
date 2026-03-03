@@ -38,6 +38,7 @@ impl InputHandler for TerminalInput {
                         KeyCode::Char('n') => GameCommand::Move(Direction::DownLeft),
                         KeyCode::Char('m') => GameCommand::Move(Direction::DownRight),
                         KeyCode::Char('.') => GameCommand::Wait,
+                        KeyCode::Char('i') => GameCommand::OpenInventory,
                         _ => continue,
                     };
                     return Ok(cmd);
