@@ -46,30 +46,30 @@ impl Visibility {
     }
 
     fn reveal_room(&mut self, player_pos: &Position, map: &GameMap) {
-        // Add adjacent tiles first (to see corridor entrances)
-        self.reveal_adjacent(player_pos);
-
-        // Add all tiles in the same room
+        // Collect all tiles in the same room
+        let mut room_tiles = Vec::new();
         for y in 0..map.height {
             for x in 0..map.width {
                 let pos = Position::new(x as i32, y as i32);
                 if map.is_same_room(player_pos, &pos) {
                     self.visible.insert(pos);
+                    room_tiles.push(pos);
                 }
             }
         }
 
-        // Also reveal exit if in same room
-        if map.is_same_room(player_pos, &map.exit_pos) {
-            self.visible.insert(map.exit_pos);
-        }
-        if map.is_exit(&map.exit_pos) {
-            // Check adjacency to any visible tile
-            for dy in -1..=1 {
-                for dx in -1..=1 {
-                    let adj = map.exit_pos.plus(&Position::new(dx, dy));
-                    if self.visible.contains(&adj) {
-                        self.visible.insert(map.exit_pos);
+        // Reveal corridor/aisle tiles adjacent to the room (entrance tiles)
+        for room_pos in &room_tiles {
+            for dy in -1..=1_i32 {
+                for dx in -1..=1_i32 {
+                    if dx == 0 && dy == 0 {
+                        continue;
+                    }
+                    let adj = room_pos.plus(&Position::new(dx, dy));
+                    if let Some(cell) = map.get(&adj) {
+                        if matches!(cell.terrain, crate::map::cell::Terrain::Aisle | crate::map::cell::Terrain::Exit) {
+                            self.visible.insert(adj);
+                        }
                     }
                 }
             }
