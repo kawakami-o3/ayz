@@ -8,14 +8,22 @@ pub enum ItemEffect {
     HealFull,
     Food(i32),        // fullness recovery (internal: 0-1000)
     BoostAttack(i32), // permanent attack boost
+    RevealMap,
+    ConfuseAll { turns: u32 },
+    TempBoostAttack { amount: i32, turns: u32 },
+    Paralyze,
+    Knockback { distance: i32 },
+    SwapPosition,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum ItemCategory {
     Herb,
     Food,
     Weapon,
     Shield,
+    Scroll,
+    Staff(i32), // charges remaining
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +94,74 @@ impl Item {
             symbol: '%',
             category: ItemCategory::Food,
             effect: ItemEffect::Food(1000),
+            equip_data: None,
+        }
+    }
+
+    // Scrolls
+    pub fn light_scroll() -> Self {
+        Item {
+            id: "light_scroll".into(),
+            name: "あかりの巻物".into(),
+            symbol: '?',
+            category: ItemCategory::Scroll,
+            effect: ItemEffect::RevealMap,
+            equip_data: None,
+        }
+    }
+
+    pub fn confusion_scroll() -> Self {
+        Item {
+            id: "confusion_scroll".into(),
+            name: "混乱の巻物".into(),
+            symbol: '?',
+            category: ItemCategory::Scroll,
+            effect: ItemEffect::ConfuseAll { turns: 10 },
+            equip_data: None,
+        }
+    }
+
+    pub fn power_scroll() -> Self {
+        Item {
+            id: "power_scroll".into(),
+            name: "パワーアップの巻物".into(),
+            symbol: '?',
+            category: ItemCategory::Scroll,
+            effect: ItemEffect::TempBoostAttack { amount: 5, turns: 20 },
+            equip_data: None,
+        }
+    }
+
+    // Staffs
+    pub fn paralysis_staff(charges: i32) -> Self {
+        Item {
+            id: "paralysis_staff".into(),
+            name: "かなしばりの杖".into(),
+            symbol: '/',
+            category: ItemCategory::Staff(charges),
+            effect: ItemEffect::Paralyze,
+            equip_data: None,
+        }
+    }
+
+    pub fn knockback_staff(charges: i32) -> Self {
+        Item {
+            id: "knockback_staff".into(),
+            name: "ふきとばしの杖".into(),
+            symbol: '/',
+            category: ItemCategory::Staff(charges),
+            effect: ItemEffect::Knockback { distance: 5 },
+            equip_data: None,
+        }
+    }
+
+    pub fn swap_staff(charges: i32) -> Self {
+        Item {
+            id: "swap_staff".into(),
+            name: "場所がえの杖".into(),
+            symbol: '/',
+            category: ItemCategory::Staff(charges),
+            effect: ItemEffect::SwapPosition,
             equip_data: None,
         }
     }
@@ -201,6 +277,34 @@ pub struct FloorEquipment {
     pub pos: Position,
 }
 
+// --- Status Effects ---
+
+#[derive(Clone, Debug, Default)]
+pub struct StatusEffects {
+    pub confused: Option<u32>,   // remaining turns
+    pub paralyzed: bool,
+    pub attack_boost: Option<(i32, u32)>, // (amount, remaining turns)
+}
+
+impl StatusEffects {
+    pub fn tick(&mut self) {
+        if let Some(t) = &mut self.confused {
+            if *t <= 1 {
+                self.confused = None;
+            } else {
+                *t -= 1;
+            }
+        }
+        if let Some((_, t)) = &mut self.attack_boost {
+            if *t <= 1 {
+                self.attack_boost = None;
+            } else {
+                *t -= 1;
+            }
+        }
+    }
+}
+
 // --- Player ---
 
 pub const MAX_INVENTORY: usize = 20;
@@ -221,6 +325,7 @@ pub struct Player {
     pub fullness: i32,
     pub max_fullness: i32,
     pub kill_count: u32,
+    pub status: StatusEffects,
 }
 
 impl Player {
@@ -241,11 +346,14 @@ impl Player {
             fullness: 1000,
             max_fullness: 1000,
             kill_count: 0,
+            status: StatusEffects::default(),
         }
     }
 
     pub fn effective_attack(&self) -> i32 {
-        self.attack + self.weapon.as_ref().map_or(0, |w| w.effective_value())
+        let base = self.attack + self.weapon.as_ref().map_or(0, |w| w.effective_value());
+        let boost = self.status.attack_boost.map_or(0, |(amt, _)| amt);
+        base + boost
     }
 
     pub fn effective_defense(&self) -> i32 {
@@ -286,6 +394,7 @@ pub struct Monster {
     pub exp: i32,
     pub pos: Position,
     pub ai_type: AiType,
+    pub status: StatusEffects,
 }
 
 // Floor table: which monsters appear on which floors
@@ -344,6 +453,7 @@ impl Monster {
             exp: def.exp,
             pos,
             ai_type: def.ai_type.clone(),
+            status: StatusEffects::default(),
         }
     }
 }

@@ -9,7 +9,7 @@ use crossterm::{
 };
 
 use crate::core::dungeon::GameState;
-use crate::core::entity::Item;
+use crate::core::entity::{Item, ItemCategory};
 use crate::core::types::Position;
 use crate::ui::renderer::{InventoryAction, Renderer};
 
@@ -219,7 +219,12 @@ impl Renderer for TerminalRenderer {
         } else {
             for (i, item) in items.iter().enumerate() {
                 let key = (b'a' + i as u8) as char;
-                writeln!(self.stdout, "  {} ) {} {}", key, item.symbol, item.name)?;
+                let charges_str = if let ItemCategory::Staff(c) = &item.category {
+                    format!("[{}]", c)
+                } else {
+                    String::new()
+                };
+                writeln!(self.stdout, "  {} ) {} {}{}", key, item.symbol, item.name, charges_str)?;
             }
         }
 

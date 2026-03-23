@@ -4,6 +4,7 @@ use super::types::{Direction, Position};
 pub enum GameCommand {
     Move(Direction),
     UseItem(usize),       // inventory index
+    UseStaff(usize),      // inventory index (staff item)
     EquipWeapon(usize),   // inventory index (weapon item)
     EquipShield(usize),   // inventory index (shield item)
     Wait,

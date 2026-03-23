@@ -86,6 +86,7 @@ where
                 let cmd = match category {
                     ItemCategory::Weapon => GameCommand::EquipWeapon(idx),
                     ItemCategory::Shield => GameCommand::EquipShield(idx),
+                    ItemCategory::Staff(_) => GameCommand::UseStaff(idx),
                     _ => GameCommand::UseItem(idx),
                 };
 

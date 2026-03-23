@@ -91,6 +91,32 @@ impl GameState {
             self.floor_items.push(FloorItem { item, pos });
         }
 
+        // Spawn scrolls (1-2 per floor)
+        let scroll_count = rng.gen_range(1..=2);
+        for _ in 0..scroll_count {
+            let pos = calc_spawn_pos(&self.map, &occupied);
+            occupied.insert(pos);
+            let scroll = match rng.gen_range(0..3) {
+                0 => Item::light_scroll(),
+                1 => Item::confusion_scroll(),
+                _ => Item::power_scroll(),
+            };
+            self.floor_items.push(FloorItem { item: scroll, pos });
+        }
+
+        // Spawn staffs (0-1 per floor)
+        if rng.gen_bool(0.5) {
+            let pos = calc_spawn_pos(&self.map, &occupied);
+            occupied.insert(pos);
+            let charges = rng.gen_range(3..=6);
+            let staff = match rng.gen_range(0..3) {
+                0 => Item::paralysis_staff(charges),
+                1 => Item::knockback_staff(charges),
+                _ => Item::swap_staff(charges),
+            };
+            self.floor_items.push(FloorItem { item: staff, pos });
+        }
+
         // Spawn equipment (1 weapon or shield per floor, with chance)
         self.floor_equips.clear();
         let mut rng = thread_rng();
@@ -168,6 +194,11 @@ impl GameState {
                     self.use_item(idx, &mut events);
                 }
             }
+            GameCommand::UseStaff(idx) => {
+                if idx < self.player.inventory.len() {
+                    self.use_staff(idx, &mut events);
+                }
+            }
             GameCommand::EquipWeapon(idx) => {
                 if idx < self.player.inventory.len() {
                     let item = self.player.inventory.remove(idx);
@@ -219,6 +250,12 @@ impl GameState {
             events.push(GameEvent::GameOver);
         }
 
+        // Tick status effects
+        self.player.status.tick();
+        for m in &mut self.monsters {
+            m.status.tick();
+        }
+
         self.turn += 1;
         events
     }
@@ -227,6 +264,11 @@ impl GameState {
         let attack = self.player.effective_attack();
         let damage = std::cmp::max(1, attack - self.monsters[monster_idx].defense);
         self.monsters[monster_idx].hp -= damage;
+        // Release paralysis on hit
+        if self.monsters[monster_idx].status.paralyzed {
+            self.monsters[monster_idx].status.paralyzed = false;
+            events.push(GameEvent::Message("金縛りが解けた".into()));
+        }
         let name = self.monsters[monster_idx].name.clone();
         events.push(GameEvent::PlayerAttacked {
             target_name: name.clone(),
@@ -294,7 +336,7 @@ impl GameState {
 
         match &item.effect {
             ItemEffect::Heal(amount) => {
-                if item.category == ItemCategory::Weapon || item.category == ItemCategory::Shield {
+                if matches!(item.category, ItemCategory::Weapon | ItemCategory::Shield) {
                     // Can't "use" equipment
                     events.push(GameEvent::Message("装備品は使えない".into()));
                     return;
@@ -324,10 +366,112 @@ impl GameState {
                 self.player.attack += amount;
                 effect_desc = format!("攻撃力が{}上がった", amount);
             }
+            ItemEffect::RevealMap => {
+                self.visibility.full_map = true;
+                self.visibility.update(&self.player.pos, &self.map);
+                effect_desc = "フロア全体が明るくなった".into();
+            }
+            ItemEffect::ConfuseAll { turns } => {
+                let count = self.monsters.len();
+                for m in &mut self.monsters {
+                    m.status.confused = Some(*turns);
+                }
+                effect_desc = format!("フロアのモンスター{}体が混乱した", count);
+            }
+            ItemEffect::TempBoostAttack { amount, turns } => {
+                self.player.status.attack_boost = Some((*amount, *turns));
+                effect_desc = format!("攻撃力が{}ターンの間{}上がった", turns, amount);
+            }
+            _ => {
+                events.push(GameEvent::Message("このアイテムは使えない".into()));
+                return;
+            }
         }
 
         self.player.inventory.remove(idx);
         events.push(GameEvent::ItemUsed { name, effect_desc });
+    }
+
+    fn use_staff(&mut self, idx: usize, events: &mut Vec<GameEvent>) {
+        let item = &self.player.inventory[idx];
+        let name = item.name.clone();
+        let effect = item.effect.clone();
+
+        // Check charges
+        let charges = match &item.category {
+            ItemCategory::Staff(c) => *c,
+            _ => {
+                events.push(GameEvent::Message("杖ではない".into()));
+                return;
+            }
+        };
+
+        if charges <= 0 {
+            events.push(GameEvent::Message(format!("{}を振ったが何も起こらなかった", name)));
+            return;
+        }
+
+        // Decrease charges
+        if let ItemCategory::Staff(c) = &mut self.player.inventory[idx].category {
+            *c -= 1;
+        }
+
+        // Fire magic bolt in player's direction
+        let dir_offset = self.player.direction.to_offset();
+        let mut bolt_pos = self.player.pos;
+        let mut hit_monster: Option<usize> = None;
+
+        for _ in 0..20 {
+            bolt_pos = bolt_pos.plus(&dir_offset);
+            if !self.map.is_walkable(&bolt_pos) {
+                break;
+            }
+            if let Some(mi) = self.monster_at(&bolt_pos) {
+                hit_monster = Some(mi);
+                break;
+            }
+        }
+
+        match hit_monster {
+            None => {
+                events.push(GameEvent::Message(format!("{}を振った。魔法弾は何にも当たらなかった", name)));
+            }
+            Some(mi) => {
+                let monster_name = self.monsters[mi].name.clone();
+                match &effect {
+                    ItemEffect::Paralyze => {
+                        self.monsters[mi].status.paralyzed = true;
+                        events.push(GameEvent::Message(format!("{}は金縛りになった", monster_name)));
+                    }
+                    ItemEffect::Knockback { distance } => {
+                        let knocked = self.knockback_monster(mi, &dir_offset, *distance);
+                        events.push(GameEvent::Message(format!("{}を{}マス吹き飛ばした", monster_name, knocked)));
+                    }
+                    ItemEffect::SwapPosition => {
+                        let player_pos = self.player.pos;
+                        let monster_pos = self.monsters[mi].pos;
+                        self.player.pos = monster_pos;
+                        self.monsters[mi].pos = player_pos;
+                        self.visibility.update(&self.player.pos, &self.map);
+                        events.push(GameEvent::Message(format!("{}と場所を入れ替えた", monster_name)));
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    fn knockback_monster(&mut self, monster_idx: usize, dir: &Position, max_distance: i32) -> i32 {
+        let mut moved = 0;
+        for _ in 0..max_distance {
+            let next = self.monsters[monster_idx].pos.plus(dir);
+            if !self.map.is_walkable(&next) || self.monster_at(&next).is_some() || next == self.player.pos {
+                break;
+            }
+            self.monsters[monster_idx].pos = next;
+            moved += 1;
+        }
+        moved
     }
 
     fn process_fullness(&mut self, events: &mut Vec<GameEvent>) {
@@ -344,7 +488,33 @@ impl GameState {
         let defense = self.player.effective_defense();
 
         for i in 0..self.monsters.len() {
+            // Paralyzed monsters skip their turn entirely
+            if self.monsters[i].status.paralyzed {
+                continue;
+            }
+
             let monster_pos = self.monsters[i].pos;
+
+            // Confused monsters move randomly (no attacking)
+            if self.monsters[i].status.confused.is_some() {
+                let dirs: Vec<&Direction> = Direction::all()
+                    .iter()
+                    .filter(|d| {
+                        let p = monster_pos.plus(&d.to_offset());
+                        self.map.is_walkable(&p)
+                            && self.monster_at(&p).is_none()
+                            && p != self.player.pos
+                    })
+                    .collect();
+                if !dirs.is_empty() {
+                    let dir = dirs[rng.gen_range(0..dirs.len())];
+                    let from = self.monsters[i].pos;
+                    let new_pos = monster_pos.plus(&dir.to_offset());
+                    self.monsters[i].pos = new_pos;
+                    events.push(GameEvent::MonsterMoved { id: i, from, to: new_pos });
+                }
+                continue;
+            }
 
             // Check if adjacent to player -> attack
             if (monster_pos.x - self.player.pos.x).abs() <= 1
