@@ -33,3 +33,8 @@ pub enum GameEvent {
     Message(String),
     RequestInventory,
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum TurnError {
+    InvalidInventoryIndex(usize),
+}

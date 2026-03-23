@@ -112,3 +112,132 @@ impl GameMap {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn mapcell_wall() {
+        let cell = MapCell::wall();
+        assert_eq!(cell.terrain, Terrain::Wall);
+    }
+
+    #[test]
+    fn mapcell_is_walkable() {
+        assert!(!MapCell::wall().is_walkable());
+        assert!(MapCell { terrain: Terrain::Floor { room_id: 0 } }.is_walkable());
+        assert!(MapCell { terrain: Terrain::Aisle }.is_walkable());
+        assert!(MapCell { terrain: Terrain::Exit }.is_walkable());
+    }
+
+    #[test]
+    fn mapcell_is_room() {
+        assert!(MapCell { terrain: Terrain::Floor { room_id: 1 } }.is_room());
+        assert!(!MapCell::wall().is_room());
+        assert!(!MapCell { terrain: Terrain::Aisle }.is_room());
+        assert!(!MapCell { terrain: Terrain::Exit }.is_room());
+    }
+
+    #[test]
+    fn gamemap_new_all_walls() {
+        let map = GameMap::new(10, 5, Position::new(0, 0));
+        assert_eq!(map.width, 10);
+        assert_eq!(map.height, 5);
+        for y in 0..5 {
+            for x in 0..10 {
+                let cell = map.get(&Position::new(x, y)).unwrap();
+                assert_eq!(cell.terrain, Terrain::Wall);
+            }
+        }
+    }
+
+    #[test]
+    fn gamemap_get_out_of_bounds() {
+        let map = GameMap::new(5, 5, Position::new(0, 0));
+        assert!(map.get(&Position::new(-1, 0)).is_none());
+        assert!(map.get(&Position::new(0, -1)).is_none());
+        assert!(map.get(&Position::new(5, 0)).is_none());
+        assert!(map.get(&Position::new(0, 5)).is_none());
+    }
+
+    #[test]
+    fn gamemap_set_and_get() {
+        let mut map = GameMap::new(5, 5, Position::new(0, 0));
+        map.set(2, 3, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+        let cell = map.get(&Position::new(2, 3)).unwrap();
+        assert_eq!(cell.terrain, Terrain::Floor { room_id: 1 });
+    }
+
+    #[test]
+    fn gamemap_is_walkable_and_is_wall() {
+        let mut map = GameMap::new(5, 5, Position::new(0, 0));
+        let wall_pos = Position::new(0, 0);
+        assert!(!map.is_walkable(&wall_pos));
+        assert!(map.is_wall(&wall_pos));
+
+        map.set(1, 1, MapCell { terrain: Terrain::Floor { room_id: 0 } });
+        let floor_pos = Position::new(1, 1);
+        assert!(map.is_walkable(&floor_pos));
+        assert!(!map.is_wall(&floor_pos));
+    }
+
+    #[test]
+    fn gamemap_is_wall_out_of_bounds_returns_true() {
+        let map = GameMap::new(5, 5, Position::new(0, 0));
+        assert!(map.is_wall(&Position::new(-1, 0)));
+    }
+
+    #[test]
+    fn gamemap_is_exit() {
+        let mut map = GameMap::new(5, 5, Position::new(2, 2));
+        map.set(2, 2, MapCell { terrain: Terrain::Exit });
+        assert!(map.is_exit(&Position::new(2, 2)));
+        assert!(!map.is_exit(&Position::new(0, 0)));
+    }
+
+    #[test]
+    fn gamemap_is_same_room() {
+        let mut map = GameMap::new(5, 5, Position::new(0, 0));
+        map.set(0, 0, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+        map.set(1, 0, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+        map.set(2, 0, MapCell { terrain: Terrain::Floor { room_id: 2 } });
+        map.set(3, 0, MapCell { terrain: Terrain::Aisle });
+
+        let a = Position::new(0, 0);
+        let b = Position::new(1, 0);
+        let c = Position::new(2, 0);
+        let d = Position::new(3, 0);
+
+        assert!(map.is_same_room(&a, &b));   // same room_id
+        assert!(!map.is_same_room(&a, &c));  // different room_id
+        assert!(!map.is_same_room(&a, &d));  // aisle is not a room
+    }
+
+    #[test]
+    fn gamemap_room_positions() {
+        let mut map = GameMap::new(3, 3, Position::new(0, 0));
+        map.set(0, 0, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+        map.set(1, 1, MapCell { terrain: Terrain::Aisle });
+        map.set(2, 2, MapCell { terrain: Terrain::Floor { room_id: 2 } });
+
+        let positions = map.room_positions();
+        assert_eq!(positions.len(), 2);
+        assert!(positions.contains(&Position::new(0, 0)));
+        assert!(positions.contains(&Position::new(2, 2)));
+    }
+
+    #[test]
+    fn gamemap_render_char() {
+        let mut map = GameMap::new(5, 5, Position::new(0, 0));
+        map.set(0, 0, MapCell { terrain: Terrain::Floor { room_id: 0 } });
+        map.set(1, 0, MapCell { terrain: Terrain::Aisle });
+        map.set(2, 0, MapCell { terrain: Terrain::Exit });
+
+        assert_eq!(map.render_char(&Position::new(0, 0)), '.');
+        assert_eq!(map.render_char(&Position::new(1, 0)), '-');
+        assert_eq!(map.render_char(&Position::new(2, 0)), '+');
+        assert_eq!(map.render_char(&Position::new(3, 0)), ' '); // wall
+        assert_eq!(map.render_char(&Position::new(-1, 0)), ' '); // out of bounds
+    }
+}

@@ -33,7 +33,8 @@ where
                 break;
             }
 
-            let events = self.state.process_turn(command);
+            let events = self.state.process_turn(command)
+                .expect("invalid game command");
 
             // Handle inventory request
             if events.iter().any(|e| matches!(e, GameEvent::RequestInventory)) {
@@ -90,7 +91,8 @@ where
                     _ => GameCommand::UseItem(idx),
                 };
 
-                let events = self.state.process_turn(cmd);
+                let events = self.state.process_turn(cmd)
+                    .expect("invalid inventory index");
                 for event in &events {
                     if let Some(msg) = event_to_message(event) {
                         self.renderer.push_message(&msg);
