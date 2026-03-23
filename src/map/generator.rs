@@ -535,3 +535,64 @@ pub fn generate() -> GameMap {
 
     map
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn generate_returns_correct_dimensions() {
+        let map = generate();
+        assert_eq!(map.width, 100);
+        assert_eq!(map.height, 50);
+    }
+
+    #[test]
+    fn generate_has_exit() {
+        let map = generate();
+        assert!(map.is_exit(&map.exit_pos));
+    }
+
+    #[test]
+    fn generate_has_walkable_tiles() {
+        let map = generate();
+        let room_positions = map.room_positions();
+        assert!(!room_positions.is_empty(), "Map must have at least one room tile");
+    }
+
+    #[test]
+    fn generate_exit_is_walkable_position() {
+        let map = generate();
+        let exit = map.exit_pos;
+        // Exit should be within map bounds
+        assert!(exit.x >= 0 && exit.x < map.width as i32);
+        assert!(exit.y >= 0 && exit.y < map.height as i32);
+    }
+
+    #[test]
+    fn generate_multiple_rooms() {
+        // Run generation a few times to verify we get multiple rooms
+        for _ in 0..3 {
+            let map = generate();
+            let positions = map.room_positions();
+            // BSP should produce multiple rooms with many floor tiles
+            assert!(positions.len() > 20, "Expected many room tiles, got {}", positions.len());
+        }
+    }
+
+    #[test]
+    fn generate_has_aisles() {
+        let map = generate();
+        let mut aisle_count = 0;
+        for y in 0..map.height {
+            for x in 0..map.width {
+                if let Some(cell) = map.get(&Position::new(x as i32, y as i32)) {
+                    if cell.terrain == Terrain::Aisle {
+                        aisle_count += 1;
+                    }
+                }
+            }
+        }
+        assert!(aisle_count > 0, "Map must have corridors connecting rooms");
+    }
+}

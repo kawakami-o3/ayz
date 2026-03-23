@@ -8,14 +8,22 @@ pub enum ItemEffect {
     HealFull,
     Food(i32),        // fullness recovery (internal: 0-1000)
     BoostAttack(i32), // permanent attack boost
+    RevealMap,
+    ConfuseAll { turns: u32 },
+    TempBoostAttack { amount: i32, turns: u32 },
+    Paralyze,
+    Knockback { distance: i32 },
+    SwapPosition,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug)]
 pub enum ItemCategory {
     Herb,
     Food,
     Weapon,
     Shield,
+    Scroll,
+    Staff(i32), // charges remaining
 }
 
 #[derive(Clone, Debug)]
@@ -86,6 +94,74 @@ impl Item {
             symbol: '%',
             category: ItemCategory::Food,
             effect: ItemEffect::Food(1000),
+            equip_data: None,
+        }
+    }
+
+    // Scrolls
+    pub fn light_scroll() -> Self {
+        Item {
+            id: "light_scroll".into(),
+            name: "あかりの巻物".into(),
+            symbol: '?',
+            category: ItemCategory::Scroll,
+            effect: ItemEffect::RevealMap,
+            equip_data: None,
+        }
+    }
+
+    pub fn confusion_scroll() -> Self {
+        Item {
+            id: "confusion_scroll".into(),
+            name: "混乱の巻物".into(),
+            symbol: '?',
+            category: ItemCategory::Scroll,
+            effect: ItemEffect::ConfuseAll { turns: 10 },
+            equip_data: None,
+        }
+    }
+
+    pub fn power_scroll() -> Self {
+        Item {
+            id: "power_scroll".into(),
+            name: "パワーアップの巻物".into(),
+            symbol: '?',
+            category: ItemCategory::Scroll,
+            effect: ItemEffect::TempBoostAttack { amount: 5, turns: 20 },
+            equip_data: None,
+        }
+    }
+
+    // Staffs
+    pub fn paralysis_staff(charges: i32) -> Self {
+        Item {
+            id: "paralysis_staff".into(),
+            name: "かなしばりの杖".into(),
+            symbol: '/',
+            category: ItemCategory::Staff(charges),
+            effect: ItemEffect::Paralyze,
+            equip_data: None,
+        }
+    }
+
+    pub fn knockback_staff(charges: i32) -> Self {
+        Item {
+            id: "knockback_staff".into(),
+            name: "ふきとばしの杖".into(),
+            symbol: '/',
+            category: ItemCategory::Staff(charges),
+            effect: ItemEffect::Knockback { distance: 5 },
+            equip_data: None,
+        }
+    }
+
+    pub fn swap_staff(charges: i32) -> Self {
+        Item {
+            id: "swap_staff".into(),
+            name: "場所がえの杖".into(),
+            symbol: '/',
+            category: ItemCategory::Staff(charges),
+            effect: ItemEffect::SwapPosition,
             equip_data: None,
         }
     }
@@ -201,6 +277,34 @@ pub struct FloorEquipment {
     pub pos: Position,
 }
 
+// --- Status Effects ---
+
+#[derive(Clone, Debug, Default)]
+pub struct StatusEffects {
+    pub confused: Option<u32>,   // remaining turns
+    pub paralyzed: bool,
+    pub attack_boost: Option<(i32, u32)>, // (amount, remaining turns)
+}
+
+impl StatusEffects {
+    pub fn tick(&mut self) {
+        if let Some(t) = &mut self.confused {
+            if *t <= 1 {
+                self.confused = None;
+            } else {
+                *t -= 1;
+            }
+        }
+        if let Some((_, t)) = &mut self.attack_boost {
+            if *t <= 1 {
+                self.attack_boost = None;
+            } else {
+                *t -= 1;
+            }
+        }
+    }
+}
+
 // --- Player ---
 
 pub const MAX_INVENTORY: usize = 20;
@@ -221,6 +325,7 @@ pub struct Player {
     pub fullness: i32,
     pub max_fullness: i32,
     pub kill_count: u32,
+    pub status: StatusEffects,
 }
 
 impl Player {
@@ -241,11 +346,14 @@ impl Player {
             fullness: 1000,
             max_fullness: 1000,
             kill_count: 0,
+            status: StatusEffects::default(),
         }
     }
 
     pub fn effective_attack(&self) -> i32 {
-        self.attack + self.weapon.as_ref().map_or(0, |w| w.effective_value())
+        let base = self.attack + self.weapon.as_ref().map_or(0, |w| w.effective_value());
+        let boost = self.status.attack_boost.map_or(0, |(amt, _)| amt);
+        base + boost
     }
 
     pub fn effective_defense(&self) -> i32 {
@@ -286,6 +394,7 @@ pub struct Monster {
     pub exp: i32,
     pub pos: Position,
     pub ai_type: AiType,
+    pub status: StatusEffects,
 }
 
 // Floor table: which monsters appear on which floors
@@ -344,6 +453,296 @@ impl Monster {
             exp: def.exp,
             pos,
             ai_type: def.ai_type.clone(),
+            status: StatusEffects::default(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // --- Equipment ---
+
+    #[test]
+    fn equipment_display_name_no_enhancement() {
+        let e = Equipment::wooden_sword(0);
+        assert_eq!(e.display_name(), "木の剣");
+    }
+
+    #[test]
+    fn equipment_display_name_with_enhancement() {
+        let e = Equipment::iron_sword(3);
+        assert_eq!(e.display_name(), "鉄の剣+3");
+    }
+
+    #[test]
+    fn equipment_effective_value() {
+        let e = Equipment::wooden_sword(2);
+        assert_eq!(e.effective_value(), 3 + 2); // base 3 + enhancement 2
+    }
+
+    #[test]
+    fn weapon_factories() {
+        let w = Equipment::wooden_sword(0);
+        assert_eq!(w.base_value, 3);
+        assert_eq!(w.category, EquipCategory::Weapon);
+
+        let w = Equipment::iron_sword(0);
+        assert_eq!(w.base_value, 6);
+
+        let w = Equipment::steel_sword(0);
+        assert_eq!(w.base_value, 10);
+    }
+
+    #[test]
+    fn shield_factories() {
+        let s = Equipment::wooden_shield(0);
+        assert_eq!(s.base_value, 3);
+        assert_eq!(s.category, EquipCategory::Shield);
+
+        let s = Equipment::iron_shield(0);
+        assert_eq!(s.base_value, 5);
+
+        let s = Equipment::steel_shield(0);
+        assert_eq!(s.base_value, 9);
+    }
+
+    // --- StatusEffects ---
+
+    #[test]
+    fn status_effects_tick_confused_decrements() {
+        let mut status = StatusEffects {
+            confused: Some(3),
+            paralyzed: false,
+            attack_boost: None,
+        };
+        status.tick();
+        assert_eq!(status.confused, Some(2));
+        status.tick();
+        assert_eq!(status.confused, Some(1));
+        status.tick();
+        assert_eq!(status.confused, None); // <= 1 clears it
+    }
+
+    #[test]
+    fn status_effects_tick_attack_boost_decrements() {
+        let mut status = StatusEffects {
+            confused: None,
+            paralyzed: false,
+            attack_boost: Some((5, 2)),
+        };
+        status.tick();
+        assert_eq!(status.attack_boost, Some((5, 1)));
+        status.tick();
+        assert_eq!(status.attack_boost, None);
+    }
+
+    #[test]
+    fn status_effects_tick_paralyzed_unchanged() {
+        let mut status = StatusEffects {
+            confused: None,
+            paralyzed: true,
+            attack_boost: None,
+        };
+        status.tick();
+        assert!(status.paralyzed); // tick does not clear paralyzed
+    }
+
+    // --- Player ---
+
+    #[test]
+    fn player_new_initial_stats() {
+        let p = Player::new();
+        assert_eq!(p.level, 1);
+        assert_eq!(p.hp, 30);
+        assert_eq!(p.max_hp, 30);
+        assert_eq!(p.attack, 8);
+        assert_eq!(p.defense, 5);
+        assert_eq!(p.fullness, 1000);
+        assert!(p.weapon.is_none());
+        assert!(p.shield.is_none());
+        assert!(p.inventory.is_empty());
+    }
+
+    #[test]
+    fn player_effective_attack_bare_hands() {
+        let p = Player::new();
+        assert_eq!(p.effective_attack(), 8); // base attack only
+    }
+
+    #[test]
+    fn player_effective_attack_with_weapon() {
+        let mut p = Player::new();
+        p.weapon = Some(Equipment::iron_sword(2)); // base 6 + enhancement 2 = 8
+        assert_eq!(p.effective_attack(), 8 + 8); // player attack + weapon
+    }
+
+    #[test]
+    fn player_effective_attack_with_boost() {
+        let mut p = Player::new();
+        p.weapon = Some(Equipment::wooden_sword(0)); // base 3
+        p.status.attack_boost = Some((5, 10));
+        assert_eq!(p.effective_attack(), 8 + 3 + 5); // player + weapon + boost
+    }
+
+    #[test]
+    fn player_effective_defense_no_shield() {
+        let p = Player::new();
+        assert_eq!(p.effective_defense(), 5);
+    }
+
+    #[test]
+    fn player_effective_defense_with_shield() {
+        let mut p = Player::new();
+        p.shield = Some(Equipment::iron_shield(1)); // base 5 + 1 = 6
+        assert_eq!(p.effective_defense(), 5 + 6);
+    }
+
+    #[test]
+    fn player_inventory_full() {
+        let mut p = Player::new();
+        assert!(!p.inventory_full());
+        for _ in 0..MAX_INVENTORY {
+            p.inventory.push(Item::herb());
+        }
+        assert!(p.inventory_full());
+    }
+
+    // --- monsters_for_floor ---
+
+    #[test]
+    fn monsters_for_floor_early() {
+        let m = monsters_for_floor(1);
+        assert_eq!(m.len(), 2);
+        assert_eq!(m[0].id, "slime");
+        assert_eq!(m[1].id, "goblin");
+    }
+
+    #[test]
+    fn monsters_for_floor_mid() {
+        let m = monsters_for_floor(3);
+        assert_eq!(m.len(), 3); // slime, goblin, bat
+
+        let m = monsters_for_floor(5);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "goblin");
+    }
+
+    #[test]
+    fn monsters_for_floor_late() {
+        let m = monsters_for_floor(10);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "drake");
+        assert_eq!(m[2].id, "guardian");
+    }
+
+    // --- Monster ---
+
+    #[test]
+    fn monster_from_def() {
+        let def = &monsters_for_floor(1)[0]; // slime
+        let pos = Position::new(5, 5);
+        let monster = Monster::from_def(def, pos);
+        assert_eq!(monster.name, "スライム");
+        assert_eq!(monster.hp, 5);
+        assert_eq!(monster.pos, pos);
+        assert!(monster.status.confused.is_none());
+        assert!(!monster.status.paralyzed);
+    }
+
+    // === 境界条件テスト ===
+
+    // #3: display_name の enhancement 負値
+    #[test]
+    fn equipment_display_name_negative_enhancement() {
+        let e = Equipment {
+            id: "cursed_sword".into(),
+            name: "呪いの剣".into(),
+            symbol: ')',
+            category: EquipCategory::Weapon,
+            base_value: 5,
+            enhancement: -1,
+        };
+        // 現在の実装: enhancement <= 0 なら名前のみ返す
+        assert_eq!(e.display_name(), "呪いの剣");
+    }
+
+    // #4: inventory_full の境界値19
+    #[test]
+    fn player_inventory_not_full_at_19() {
+        let mut p = Player::new();
+        for _ in 0..19 {
+            p.inventory.push(Item::herb());
+        }
+        assert!(!p.inventory_full()); // 19 < 20
+    }
+
+    // #10: monsters_for_floor の全境界値
+    #[test]
+    fn monsters_for_floor_boundary_floor_0() {
+        // floor=0 は match の _ アームに該当
+        let m = monsters_for_floor(0);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "drake");
+    }
+
+    #[test]
+    fn monsters_for_floor_boundary_floor_2() {
+        let m = monsters_for_floor(2);
+        assert_eq!(m.len(), 2);
+        assert_eq!(m[0].id, "slime");
+        assert_eq!(m[1].id, "goblin");
+    }
+
+    #[test]
+    fn monsters_for_floor_boundary_floor_4() {
+        let m = monsters_for_floor(4);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "goblin");
+        assert_eq!(m[1].id, "bat");
+        assert_eq!(m[2].id, "golem");
+    }
+
+    #[test]
+    fn monsters_for_floor_boundary_floor_6() {
+        let m = monsters_for_floor(6);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "specter");
+        assert_eq!(m[1].id, "golem");
+        assert_eq!(m[2].id, "imp");
+    }
+
+    #[test]
+    fn monsters_for_floor_boundary_floor_7() {
+        let m = monsters_for_floor(7);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "specter");
+    }
+
+    #[test]
+    fn monsters_for_floor_boundary_floor_8() {
+        let m = monsters_for_floor(8);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "specter");
+        assert_eq!(m[1].id, "drake");
+        assert_eq!(m[2].id, "imp");
+    }
+
+    #[test]
+    fn monsters_for_floor_boundary_floor_9() {
+        let m = monsters_for_floor(9);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "specter");
+    }
+
+    #[test]
+    fn monsters_for_floor_boundary_floor_100() {
+        // Very high floor: should use _ arm
+        let m = monsters_for_floor(100);
+        assert_eq!(m.len(), 3);
+        assert_eq!(m[0].id, "drake");
+        assert_eq!(m[1].id, "imp");
+        assert_eq!(m[2].id, "guardian");
     }
 }
