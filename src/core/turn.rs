@@ -7,9 +7,11 @@ pub enum GameCommand {
     UseStaff(usize),      // inventory index (staff item)
     EquipWeapon(usize),   // inventory index (weapon item)
     EquipShield(usize),   // inventory index (shield item)
+    ThrowItem(usize),     // inventory index (throw item)
     Wait,
     Quit,
     OpenInventory,
+    OpenThrowInventory,
 }
 
 #[derive(Debug, Clone)]
@@ -30,8 +32,10 @@ pub enum GameEvent {
     Starving,
     GameOver,
     GameClear,
+    ItemThrown { name: String, result_desc: String },
     Message(String),
     RequestInventory,
+    RequestThrowInventory,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
