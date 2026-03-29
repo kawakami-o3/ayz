@@ -256,6 +256,68 @@ impl Renderer for TerminalRenderer {
         }
     }
 
+    fn render_throw_inventory(
+        &mut self,
+        items: &[Item],
+        weapon: Option<&str>,
+        shield: Option<&str>,
+    ) -> Result<Option<InventoryAction>, Self::Error> {
+        queue!(self.stdout, Clear(ClearType::All), MoveTo(0, 0))?;
+
+        writeln!(self.stdout, "=== 投げるアイテムを選択 ({}/{}) ===", items.len(), 20)?;
+        writeln!(self.stdout)?;
+
+        if let Some(w) = weapon {
+            writeln!(self.stdout, "  [装備中] 武器: {}", w)?;
+        }
+        if let Some(s) = shield {
+            writeln!(self.stdout, "  [装備中] 盾:   {}", s)?;
+        }
+        if weapon.is_some() || shield.is_some() {
+            writeln!(self.stdout)?;
+        }
+
+        if items.is_empty() {
+            writeln!(self.stdout, "  (何も持っていない)")?;
+        } else {
+            for (i, item) in items.iter().enumerate() {
+                let key = (b'a' + i as u8) as char;
+                let charges_str = if let ItemCategory::Staff(c) = &item.category {
+                    format!("[{}]", c)
+                } else {
+                    String::new()
+                };
+                writeln!(self.stdout, "  {} ) {} {}{}", key, item.symbol, item.name, charges_str)?;
+            }
+        }
+
+        writeln!(self.stdout)?;
+        writeln!(self.stdout, "  投げるアイテムを選択 (a-{}) / ESC: 戻る",
+            if items.is_empty() { '-' } else { (b'a' + (items.len() as u8).saturating_sub(1)) as char }
+        )?;
+        self.stdout.flush()?;
+
+        loop {
+            match event::read()? {
+                Event::Key(key) if key.kind == KeyEventKind::Press => {
+                    match key.code {
+                        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('t') => {
+                            return Ok(Some(InventoryAction::Cancel));
+                        }
+                        KeyCode::Char(c) if c >= 'a' => {
+                            let idx = (c as u8 - b'a') as usize;
+                            if idx < items.len() {
+                                return Ok(Some(InventoryAction::Throw(idx)));
+                            }
+                        }
+                        _ => continue,
+                    }
+                }
+                _ => continue,
+            }
+        }
+    }
+
     fn render_game_over(&mut self, state: &GameState) -> Result<(), Self::Error> {
         queue!(self.stdout, Clear(ClearType::All), MoveTo(0, 0))?;
         writeln!(self.stdout)?;

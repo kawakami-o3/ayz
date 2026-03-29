@@ -225,9 +225,19 @@ impl GameState {
                 self.player.shield = Some(item_to_equipment(&item, EquipCategory::Shield));
                 events.push(GameEvent::Equipped { name });
             }
+            GameCommand::ThrowItem(idx) => {
+                if idx >= self.player.inventory.len() {
+                    return Err(TurnError::InvalidInventoryIndex(idx));
+                }
+                self.throw_item(idx, &mut events);
+            }
             GameCommand::Wait => {}
             GameCommand::OpenInventory => {
                 events.push(GameEvent::RequestInventory);
+                turn_consumed = false;
+            }
+            GameCommand::OpenThrowInventory => {
+                events.push(GameEvent::RequestThrowInventory);
                 turn_consumed = false;
             }
             GameCommand::Quit => return Ok(events),
@@ -463,6 +473,95 @@ impl GameState {
                 }
             }
         }
+    }
+
+    fn throw_item(&mut self, idx: usize, events: &mut Vec<GameEvent>) {
+        let item = self.player.inventory.remove(idx);
+        let name = item.name.clone();
+        let category = item.category.clone();
+        let effect = item.effect.clone();
+
+        let dir_offset = self.player.direction.to_offset();
+        let mut throw_pos = self.player.pos;
+        let mut last_walkable = self.player.pos;
+
+        for _ in 0..10 {
+            throw_pos = throw_pos.plus(&dir_offset);
+
+            if !self.map.is_walkable(&throw_pos) {
+                // Hit a wall — item is lost
+                events.push(GameEvent::ItemThrown {
+                    name,
+                    result_desc: "壁に当たって砕けた".into(),
+                });
+                return;
+            }
+
+            if let Some(mi) = self.monster_at(&throw_pos) {
+                // Hit a monster — deal damage + effects
+                let damage = match &category {
+                    ItemCategory::Weapon => {
+                        let attack_value = item.equip_data.as_ref()
+                            .map(|d| d.base_value + d.enhancement)
+                            .unwrap_or(0);
+                        std::cmp::max(1, attack_value / 2)
+                    }
+                    _ => 2,
+                };
+
+                self.monsters[mi].hp -= damage;
+                let monster_name = self.monsters[mi].name.clone();
+                let mut result_desc = format!("{}に{}ダメージを与えた", monster_name, damage);
+
+                // Apply herb effects to monster
+                if matches!(category, ItemCategory::Herb) {
+                    match &effect {
+                        ItemEffect::Heal(amount) => {
+                            let healed = std::cmp::min(*amount, self.monsters[mi].max_hp - self.monsters[mi].hp);
+                            if healed > 0 {
+                                self.monsters[mi].hp += healed;
+                                result_desc += &format!("。{}のHPが{}回復した", monster_name, healed);
+                            }
+                        }
+                        ItemEffect::HealFull => {
+                            self.monsters[mi].hp = self.monsters[mi].max_hp;
+                            result_desc += &format!("。{}のHPが全回復した", monster_name);
+                        }
+                        ItemEffect::BoostAttack(amount) => {
+                            self.monsters[mi].attack += amount;
+                            result_desc += &format!("。{}の攻撃力が{}上がった", monster_name, amount);
+                        }
+                        _ => {}
+                    }
+                }
+
+                // Check if monster is defeated
+                if self.monsters[mi].hp <= 0 {
+                    let exp = self.monsters[mi].exp;
+                    self.monsters.remove(mi);
+                    events.push(GameEvent::ItemThrown { name, result_desc });
+                    events.push(GameEvent::MonsterDefeated {
+                        name: monster_name,
+                        exp,
+                    });
+                    self.player.exp += exp;
+                    self.player.kill_count += 1;
+                    self.check_level_up(events);
+                } else {
+                    events.push(GameEvent::ItemThrown { name, result_desc });
+                }
+                return;
+            }
+
+            last_walkable = throw_pos;
+        }
+
+        // Didn't hit anything — item drops on ground
+        self.floor_items.push(FloorItem { item, pos: last_walkable });
+        events.push(GameEvent::ItemThrown {
+            name,
+            result_desc: "地面に落ちた".into(),
+        });
     }
 
     fn knockback_monster(&mut self, monster_idx: usize, dir: &Position, max_distance: i32) -> i32 {
@@ -1191,5 +1290,152 @@ mod tests {
         assert!(events.iter().any(|e| matches!(e, GameEvent::Starving)));
         assert!(events.iter().any(|e| matches!(e, GameEvent::GameOver)));
         assert_eq!(state.player.hp, 0);
+    }
+
+    // === 投擲テスト ===
+
+    #[test]
+    fn throw_herb_hits_monster_deals_damage_and_heals() {
+        let mut state = make_test_state();
+        state.player.direction = Direction::Right;
+        state.player.inventory.push(Item::herb());
+        // Place monster at (5, 2), player at (2, 2)
+        let def = &monsters_for_floor(1)[0]; // slime: hp=5
+        let mut monster = Monster::from_def(def, Position::new(5, 2));
+        monster.hp = 4; // reduce hp so heal effect is visible
+        state.monsters.push(monster);
+
+        let events = state.process_turn(GameCommand::ThrowItem(0)).unwrap();
+        assert!(events.iter().any(|e| matches!(e, GameEvent::ItemThrown { .. })));
+        // Monster should have taken 2 damage then healed 3 (min of 25, max_hp(5) - (4-2))
+        // hp: 4 - 2 = 2, then heal min(25, 5-2) = 3, final = 5
+        assert_eq!(state.monsters[0].hp, 5);
+        assert!(state.player.inventory.is_empty());
+    }
+
+    #[test]
+    fn throw_toward_wall_item_lost() {
+        let mut state = make_test_state();
+        state.player.pos = Position::new(1, 2);
+        state.player.direction = Direction::Left; // wall at x=0
+        state.player.inventory.push(Item::herb());
+
+        let events = state.process_turn(GameCommand::ThrowItem(0)).unwrap();
+        assert!(events.iter().any(|e| matches!(e, GameEvent::ItemThrown { ref result_desc, .. } if result_desc.contains("壁"))));
+        assert!(state.player.inventory.is_empty());
+        // No floor item created
+        assert!(state.floor_items.is_empty());
+    }
+
+    #[test]
+    fn throw_misses_drops_on_ground() {
+        // Need a wide map so 10 tiles don't hit a wall
+        let mut map = GameMap::new(20, 10, Position::new(18, 8));
+        for y in 1..=8 {
+            for x in 1..=18 {
+                map.set(x, y, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+            }
+        }
+        let mut player = Player::new();
+        player.pos = Position::new(2, 2);
+        player.direction = Direction::Right;
+        player.inventory.push(Item::herb());
+
+        let mut state = GameState {
+            player,
+            monsters: Vec::new(),
+            floor_items: Vec::new(),
+            floor_equips: Vec::new(),
+            map,
+            visibility: Visibility::new(),
+            floor: 1,
+            max_floor: 10,
+            turn: 0,
+        };
+        state.visibility.update(&state.player.pos, &state.map);
+
+        let events = state.process_turn(GameCommand::ThrowItem(0)).unwrap();
+        assert!(events.iter().any(|e| matches!(e, GameEvent::ItemThrown { ref result_desc, .. } if result_desc.contains("地面"))));
+        assert!(state.player.inventory.is_empty());
+        // Item should be on the ground at position (12, 2) — 10 tiles from player
+        assert_eq!(state.floor_items.len(), 1);
+        assert_eq!(state.floor_items[0].pos, Position::new(12, 2));
+    }
+
+    #[test]
+    fn throw_weapon_deals_half_attack() {
+        let mut state = make_test_state();
+        state.player.direction = Direction::Right;
+        // Create a weapon item in inventory (iron sword: base 6, enhancement 2 => effective 8, throw damage = 4)
+        let weapon_item = Item {
+            id: "iron_sword".into(),
+            name: "鉄の剣+2".into(),
+            symbol: ')',
+            category: ItemCategory::Weapon,
+            effect: ItemEffect::Heal(0),
+            equip_data: Some(EquipData { base_value: 6, enhancement: 2 }),
+        };
+        state.player.inventory.push(weapon_item);
+        let def = &monsters_for_floor(6)[0]; // specter: hp=22
+        state.monsters.push(Monster::from_def(def, Position::new(5, 2)));
+
+        let events = state.process_turn(GameCommand::ThrowItem(0)).unwrap();
+        assert!(events.iter().any(|e| matches!(e, GameEvent::ItemThrown { .. })));
+        // Damage = max(1, (6+2)/2) = 4
+        assert_eq!(state.monsters[0].hp, 22 - 4);
+    }
+
+    #[test]
+    fn throw_power_herb_boosts_monster_attack() {
+        let mut state = make_test_state();
+        state.player.direction = Direction::Right;
+        state.player.inventory.push(Item::power_herb());
+        let def = &monsters_for_floor(1)[0]; // slime: attack=2
+        state.monsters.push(Monster::from_def(def, Position::new(4, 2)));
+
+        let original_attack = state.monsters[0].attack;
+        let events = state.process_turn(GameCommand::ThrowItem(0)).unwrap();
+        assert!(events.iter().any(|e| matches!(e, GameEvent::ItemThrown { .. })));
+        // 2 damage dealt, then attack +1
+        assert_eq!(state.monsters[0].attack, original_attack + 1);
+    }
+
+    #[test]
+    fn throw_kills_monster_grants_exp() {
+        let mut state = make_test_state();
+        state.player.direction = Direction::Right;
+        state.player.inventory.push(Item::ration()); // food: 2 damage
+        let def = &monsters_for_floor(1)[0]; // slime: hp=5
+        let mut monster = Monster::from_def(def, Position::new(4, 2));
+        monster.hp = 2; // will die from 2 damage
+        let exp = monster.exp;
+        state.monsters.push(monster);
+
+        let events = state.process_turn(GameCommand::ThrowItem(0)).unwrap();
+        assert!(events.iter().any(|e| matches!(e, GameEvent::MonsterDefeated { .. })));
+        assert_eq!(state.player.exp, exp);
+        assert!(state.monsters.is_empty());
+    }
+
+    #[test]
+    fn throw_invalid_index_returns_error() {
+        let mut state = make_test_state();
+        let result = state.process_turn(GameCommand::ThrowItem(0));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn throw_staff_deals_flat_damage() {
+        let mut state = make_test_state();
+        state.player.direction = Direction::Right;
+        state.player.inventory.push(Item::paralysis_staff(3));
+        let def = &monsters_for_floor(6)[0]; // specter: hp=22
+        state.monsters.push(Monster::from_def(def, Position::new(5, 2)));
+
+        let events = state.process_turn(GameCommand::ThrowItem(0)).unwrap();
+        assert!(events.iter().any(|e| matches!(e, GameEvent::ItemThrown { .. })));
+        // Staff thrown deals flat 2 damage (not paralysis effect)
+        assert_eq!(state.monsters[0].hp, 22 - 2);
+        assert!(!state.monsters[0].status.paralyzed); // No paralysis from throw
     }
 }

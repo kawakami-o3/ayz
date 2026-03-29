@@ -43,6 +43,13 @@ where
                 continue;
             }
 
+            // Handle throw inventory request
+            if events.iter().any(|e| matches!(e, GameEvent::RequestThrowInventory)) {
+                self.handle_throw_inventory()?;
+                self.renderer.render(&self.state)?;
+                continue;
+            }
+
             // Convert events to messages
             for event in &events {
                 if let Some(msg) = event_to_message(event) {
@@ -103,6 +110,31 @@ where
 
         Ok(())
     }
+
+    fn handle_throw_inventory(&mut self) -> Result<(), std::io::Error> {
+        let weapon_name = self.state.player.weapon.as_ref().map(|w| w.display_name());
+        let shield_name = self.state.player.shield.as_ref().map(|s| s.display_name());
+
+        let action = self.renderer.render_throw_inventory(
+            &self.state.player.inventory,
+            weapon_name.as_deref(),
+            shield_name.as_deref(),
+        )?;
+
+        if let Some(InventoryAction::Throw(idx)) = action {
+            if idx < self.state.player.inventory.len() {
+                let events = self.state.process_turn(GameCommand::ThrowItem(idx))
+                    .expect("invalid inventory index");
+                for event in &events {
+                    if let Some(msg) = event_to_message(event) {
+                        self.renderer.push_message(&msg);
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
 fn event_to_message(event: &GameEvent) -> Option<String> {
@@ -146,6 +178,9 @@ fn event_to_message(event: &GameEvent) -> Option<String> {
         }
         GameEvent::FloorAdvance { new_floor } => {
             Some(format!("{}階に降りた", new_floor))
+        }
+        GameEvent::ItemThrown { name, result_desc } => {
+            Some(format!("{}を投げた。{}", name, result_desc))
         }
         GameEvent::Message(msg) => Some(msg.clone()),
         _ => None,
