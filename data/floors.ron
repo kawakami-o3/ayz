@@ -1,0 +1,45 @@
+(
+    monster_table: [
+        (floors: (1, 2),    monsters: ["slime", "goblin"]),
+        (floors: (3, 3),    monsters: ["slime", "goblin", "bat"]),
+        (floors: (4, 5),    monsters: ["goblin", "bat", "golem"]),
+        (floors: (6, 7),    monsters: ["specter", "golem", "imp"]),
+        (floors: (8, 9),    monsters: ["specter", "drake", "imp"]),
+        (floors: (10, 999), monsters: ["drake", "imp", "guardian"]),
+    ],
+    monster_counts: [
+        (floors: (1, 3),    count: 8),
+        (floors: (4, 6),    count: 10),
+        (floors: (7, 9),    count: 12),
+        (floors: (10, 999), count: 15),
+    ],
+    herb_spawns: [
+        (floors: (1, 999), count: 3),
+    ],
+    food_spawns: [
+        (floors: (1, 3), count: 2, items: [
+            (id: "big_ration", weight: 0.3),
+            (id: "ration",     weight: 0.7),
+        ]),
+        (floors: (4, 999), count: 1, items: [
+            (id: "big_ration", weight: 0.3),
+            (id: "ration",     weight: 0.7),
+        ]),
+    ],
+    scroll_spawns: (
+        min: 1,
+        max: 2,
+        pool: ["light_scroll", "confusion_scroll", "power_scroll"],
+    ),
+    staff_spawns: (
+        chance: 0.5,
+        min_charges: 3,
+        max_charges: 6,
+        pool: ["paralysis_staff", "knockback_staff", "swap_staff"],
+    ),
+    equipment_spawns: [
+        (floors: (1, 3),   chance: 0.5, weapons: ["wooden_sword"], shields: ["wooden_shield"], max_enhancement: 3),
+        (floors: (4, 6),   chance: 0.5, weapons: ["iron_sword"],   shields: ["iron_shield"],   max_enhancement: 3),
+        (floors: (7, 999), chance: 0.5, weapons: ["steel_sword"],  shields: ["steel_shield"],  max_enhancement: 3),
+    ],
+)

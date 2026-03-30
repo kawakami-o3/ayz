@@ -1,0 +1,68 @@
+{
+    "herb": (
+        name: "回復草",
+        symbol: '!',
+        category: Herb,
+        effect: Heal(25),
+    ),
+    "full_heal_herb": (
+        name: "万能草",
+        symbol: '!',
+        category: Herb,
+        effect: HealFull,
+    ),
+    "power_herb": (
+        name: "力の草",
+        symbol: '!',
+        category: Herb,
+        effect: BoostAttack(1),
+    ),
+    "ration": (
+        name: "携帯食",
+        symbol: '%',
+        category: Food,
+        effect: Food(500),
+    ),
+    "big_ration": (
+        name: "保存食",
+        symbol: '%',
+        category: Food,
+        effect: Food(1000),
+    ),
+    "light_scroll": (
+        name: "あかりの巻物",
+        symbol: '?',
+        category: Scroll,
+        effect: RevealMap,
+    ),
+    "confusion_scroll": (
+        name: "混乱の巻物",
+        symbol: '?',
+        category: Scroll,
+        effect: ConfuseAll(turns: 10),
+    ),
+    "power_scroll": (
+        name: "パワーアップの巻物",
+        symbol: '?',
+        category: Scroll,
+        effect: TempBoostAttack(amount: 5, turns: 20),
+    ),
+    "paralysis_staff": (
+        name: "かなしばりの杖",
+        symbol: '/',
+        category: Staff,
+        effect: Paralyze,
+    ),
+    "knockback_staff": (
+        name: "ふきとばしの杖",
+        symbol: '/',
+        category: Staff,
+        effect: Knockback(distance: 5),
+    ),
+    "swap_staff": (
+        name: "場所がえの杖",
+        symbol: '/',
+        category: Staff,
+        effect: SwapPosition,
+    ),
+}

@@ -1,0 +1,19 @@
+(
+    initial_stats: (
+        level: 1,
+        hp: 30,
+        attack: 8,
+        defense: 5,
+        fullness: 1000,
+        max_fullness: 1000,
+        symbol: '@',
+    ),
+    max_inventory: 20,
+    level_table: [
+        (level: 1, req_exp: 0,   max_hp: 30, attack: 8,  defense: 5),
+        (level: 2, req_exp: 30,  max_hp: 35, attack: 10, defense: 6),
+        (level: 3, req_exp: 70,  max_hp: 40, attack: 12, defense: 7),
+        (level: 4, req_exp: 120, max_hp: 45, attack: 14, defense: 8),
+        (level: 5, req_exp: 200, max_hp: 50, attack: 16, defense: 9),
+    ],
+)

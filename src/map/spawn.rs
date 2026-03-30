@@ -1,8 +1,8 @@
 use rand::prelude::*;
 use std::collections::HashSet;
 
-use crate::core::types::Position;
 use super::cell::GameMap;
+use crate::core::types::Position;
 
 pub fn calc_spawn_pos(map: &GameMap, occupied: &HashSet<Position>) -> Position {
     let candidates: Vec<Position> = map
@@ -29,10 +29,22 @@ mod tests {
         let mut map = GameMap::new(5, 5, Position::new(4, 4));
         for y in 1..=3 {
             for x in 1..=3 {
-                map.set(x, y, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+                map.set(
+                    x,
+                    y,
+                    MapCell {
+                        terrain: Terrain::Floor { room_id: 1 },
+                    },
+                );
             }
         }
-        map.set(4, 4, MapCell { terrain: Terrain::Exit });
+        map.set(
+            4,
+            4,
+            MapCell {
+                terrain: Terrain::Exit,
+            },
+        );
         map
     }
 

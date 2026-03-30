@@ -30,11 +30,7 @@ impl TerminalRenderer {
 
     fn render_header(&mut self, state: &GameState) -> Result<(), std::io::Error> {
         queue!(self.stdout, MoveTo(0, 0))?;
-        write!(
-            self.stdout,
-            "Floor {}/{}",
-            state.floor, state.max_floor
-        )?;
+        write!(self.stdout, "Floor {}/{}", state.floor, state.max_floor())?;
         write!(self.stdout, "                              ")?;
         Ok(())
     }
@@ -121,10 +117,16 @@ impl TerminalRenderer {
         let fullness_display = state.player.fullness / 10;
         let max_fullness_display = state.player.max_fullness / 10;
 
-        let weapon_str = state.player.weapon.as_ref()
+        let weapon_str = state
+            .player
+            .weapon
+            .as_ref()
             .map(|w| w.display_name())
             .unwrap_or_else(|| "-".into());
-        let shield_str = state.player.shield.as_ref()
+        let shield_str = state
+            .player
+            .shield
+            .as_ref()
             .map(|s| s.display_name())
             .unwrap_or_else(|| "-".into());
 
@@ -141,7 +143,7 @@ impl TerminalRenderer {
             weapon_str,
             shield_str,
             state.floor,
-            state.max_floor,
+            state.max_floor(),
         )?;
 
         Ok(())
@@ -224,33 +226,41 @@ impl Renderer for TerminalRenderer {
                 } else {
                     String::new()
                 };
-                writeln!(self.stdout, "  {} ) {} {}{}", key, item.symbol, item.name, charges_str)?;
+                writeln!(
+                    self.stdout,
+                    "  {} ) {} {}{}",
+                    key, item.symbol, item.name, charges_str
+                )?;
             }
         }
 
         writeln!(self.stdout)?;
-        writeln!(self.stdout, "  使うアイテムを選択 (a-{}) / ESC: 戻る",
-            if items.is_empty() { '-' } else { (b'a' + (items.len() as u8).saturating_sub(1)) as char }
+        writeln!(
+            self.stdout,
+            "  使うアイテムを選択 (a-{}) / ESC: 戻る",
+            if items.is_empty() {
+                '-'
+            } else {
+                (b'a' + (items.len() as u8).saturating_sub(1)) as char
+            }
         )?;
         self.stdout.flush()?;
 
         // Wait for input
         loop {
             match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => {
-                    match key.code {
-                        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('i') => {
-                            return Ok(Some(InventoryAction::Cancel));
-                        }
-                        KeyCode::Char(c) if c >= 'a' => {
-                            let idx = (c as u8 - b'a') as usize;
-                            if idx < items.len() {
-                                return Ok(Some(InventoryAction::Use(idx)));
-                            }
-                        }
-                        _ => continue,
+                Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
+                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('i') => {
+                        return Ok(Some(InventoryAction::Cancel));
                     }
-                }
+                    KeyCode::Char(c) if c >= 'a' => {
+                        let idx = (c as u8 - b'a') as usize;
+                        if idx < items.len() {
+                            return Ok(Some(InventoryAction::Use(idx)));
+                        }
+                    }
+                    _ => continue,
+                },
                 _ => continue,
             }
         }
@@ -264,7 +274,12 @@ impl Renderer for TerminalRenderer {
     ) -> Result<Option<InventoryAction>, Self::Error> {
         queue!(self.stdout, Clear(ClearType::All), MoveTo(0, 0))?;
 
-        writeln!(self.stdout, "=== 投げるアイテムを選択 ({}/{}) ===", items.len(), 20)?;
+        writeln!(
+            self.stdout,
+            "=== 投げるアイテムを選択 ({}/{}) ===",
+            items.len(),
+            20
+        )?;
         writeln!(self.stdout)?;
 
         if let Some(w) = weapon {
@@ -287,32 +302,40 @@ impl Renderer for TerminalRenderer {
                 } else {
                     String::new()
                 };
-                writeln!(self.stdout, "  {} ) {} {}{}", key, item.symbol, item.name, charges_str)?;
+                writeln!(
+                    self.stdout,
+                    "  {} ) {} {}{}",
+                    key, item.symbol, item.name, charges_str
+                )?;
             }
         }
 
         writeln!(self.stdout)?;
-        writeln!(self.stdout, "  投げるアイテムを選択 (a-{}) / ESC: 戻る",
-            if items.is_empty() { '-' } else { (b'a' + (items.len() as u8).saturating_sub(1)) as char }
+        writeln!(
+            self.stdout,
+            "  投げるアイテムを選択 (a-{}) / ESC: 戻る",
+            if items.is_empty() {
+                '-'
+            } else {
+                (b'a' + (items.len() as u8).saturating_sub(1)) as char
+            }
         )?;
         self.stdout.flush()?;
 
         loop {
             match event::read()? {
-                Event::Key(key) if key.kind == KeyEventKind::Press => {
-                    match key.code {
-                        KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('t') => {
-                            return Ok(Some(InventoryAction::Cancel));
-                        }
-                        KeyCode::Char(c) if c >= 'a' => {
-                            let idx = (c as u8 - b'a') as usize;
-                            if idx < items.len() {
-                                return Ok(Some(InventoryAction::Throw(idx)));
-                            }
-                        }
-                        _ => continue,
+                Event::Key(key) if key.kind == KeyEventKind::Press => match key.code {
+                    KeyCode::Esc | KeyCode::Char('q') | KeyCode::Char('t') => {
+                        return Ok(Some(InventoryAction::Cancel));
                     }
-                }
+                    KeyCode::Char(c) if c >= 'a' => {
+                        let idx = (c as u8 - b'a') as usize;
+                        if idx < items.len() {
+                            return Ok(Some(InventoryAction::Throw(idx)));
+                        }
+                    }
+                    _ => continue,
+                },
                 _ => continue,
             }
         }
@@ -323,7 +346,12 @@ impl Renderer for TerminalRenderer {
         writeln!(self.stdout)?;
         writeln!(self.stdout, "        GAME OVER")?;
         writeln!(self.stdout)?;
-        writeln!(self.stdout, "   到達フロア: {}/{}", state.floor, state.max_floor)?;
+        writeln!(
+            self.stdout,
+            "   到達フロア: {}/{}",
+            state.floor,
+            state.max_floor()
+        )?;
         writeln!(self.stdout, "   レベル: {}", state.player.level)?;
         writeln!(self.stdout, "   撃破数: {}", state.player.kill_count)?;
         writeln!(self.stdout)?;
@@ -337,7 +365,7 @@ impl Renderer for TerminalRenderer {
         writeln!(self.stdout)?;
         writeln!(self.stdout, "     CONGRATULATIONS!")?;
         writeln!(self.stdout)?;
-        writeln!(self.stdout, "   全 {} フロアを踏破！", state.max_floor)?;
+        writeln!(self.stdout, "   全 {} フロアを踏破！", state.max_floor())?;
         writeln!(self.stdout, "   レベル: {}", state.player.level)?;
         writeln!(self.stdout, "   撃破数: {}", state.player.kill_count)?;
         writeln!(self.stdout)?;
