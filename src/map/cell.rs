@@ -126,17 +126,35 @@ mod tests {
     #[test]
     fn mapcell_is_walkable() {
         assert!(!MapCell::wall().is_walkable());
-        assert!(MapCell { terrain: Terrain::Floor { room_id: 0 } }.is_walkable());
-        assert!(MapCell { terrain: Terrain::Aisle }.is_walkable());
-        assert!(MapCell { terrain: Terrain::Exit }.is_walkable());
+        assert!(MapCell {
+            terrain: Terrain::Floor { room_id: 0 }
+        }
+        .is_walkable());
+        assert!(MapCell {
+            terrain: Terrain::Aisle
+        }
+        .is_walkable());
+        assert!(MapCell {
+            terrain: Terrain::Exit
+        }
+        .is_walkable());
     }
 
     #[test]
     fn mapcell_is_room() {
-        assert!(MapCell { terrain: Terrain::Floor { room_id: 1 } }.is_room());
+        assert!(MapCell {
+            terrain: Terrain::Floor { room_id: 1 }
+        }
+        .is_room());
         assert!(!MapCell::wall().is_room());
-        assert!(!MapCell { terrain: Terrain::Aisle }.is_room());
-        assert!(!MapCell { terrain: Terrain::Exit }.is_room());
+        assert!(!MapCell {
+            terrain: Terrain::Aisle
+        }
+        .is_room());
+        assert!(!MapCell {
+            terrain: Terrain::Exit
+        }
+        .is_room());
     }
 
     #[test]
@@ -164,7 +182,13 @@ mod tests {
     #[test]
     fn gamemap_set_and_get() {
         let mut map = GameMap::new(5, 5, Position::new(0, 0));
-        map.set(2, 3, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+        map.set(
+            2,
+            3,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 1 },
+            },
+        );
         let cell = map.get(&Position::new(2, 3)).unwrap();
         assert_eq!(cell.terrain, Terrain::Floor { room_id: 1 });
     }
@@ -176,7 +200,13 @@ mod tests {
         assert!(!map.is_walkable(&wall_pos));
         assert!(map.is_wall(&wall_pos));
 
-        map.set(1, 1, MapCell { terrain: Terrain::Floor { room_id: 0 } });
+        map.set(
+            1,
+            1,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 0 },
+            },
+        );
         let floor_pos = Position::new(1, 1);
         assert!(map.is_walkable(&floor_pos));
         assert!(!map.is_wall(&floor_pos));
@@ -191,7 +221,13 @@ mod tests {
     #[test]
     fn gamemap_is_exit() {
         let mut map = GameMap::new(5, 5, Position::new(2, 2));
-        map.set(2, 2, MapCell { terrain: Terrain::Exit });
+        map.set(
+            2,
+            2,
+            MapCell {
+                terrain: Terrain::Exit,
+            },
+        );
         assert!(map.is_exit(&Position::new(2, 2)));
         assert!(!map.is_exit(&Position::new(0, 0)));
     }
@@ -199,27 +235,69 @@ mod tests {
     #[test]
     fn gamemap_is_same_room() {
         let mut map = GameMap::new(5, 5, Position::new(0, 0));
-        map.set(0, 0, MapCell { terrain: Terrain::Floor { room_id: 1 } });
-        map.set(1, 0, MapCell { terrain: Terrain::Floor { room_id: 1 } });
-        map.set(2, 0, MapCell { terrain: Terrain::Floor { room_id: 2 } });
-        map.set(3, 0, MapCell { terrain: Terrain::Aisle });
+        map.set(
+            0,
+            0,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 1 },
+            },
+        );
+        map.set(
+            1,
+            0,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 1 },
+            },
+        );
+        map.set(
+            2,
+            0,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 2 },
+            },
+        );
+        map.set(
+            3,
+            0,
+            MapCell {
+                terrain: Terrain::Aisle,
+            },
+        );
 
         let a = Position::new(0, 0);
         let b = Position::new(1, 0);
         let c = Position::new(2, 0);
         let d = Position::new(3, 0);
 
-        assert!(map.is_same_room(&a, &b));   // same room_id
-        assert!(!map.is_same_room(&a, &c));  // different room_id
-        assert!(!map.is_same_room(&a, &d));  // aisle is not a room
+        assert!(map.is_same_room(&a, &b)); // same room_id
+        assert!(!map.is_same_room(&a, &c)); // different room_id
+        assert!(!map.is_same_room(&a, &d)); // aisle is not a room
     }
 
     #[test]
     fn gamemap_room_positions() {
         let mut map = GameMap::new(3, 3, Position::new(0, 0));
-        map.set(0, 0, MapCell { terrain: Terrain::Floor { room_id: 1 } });
-        map.set(1, 1, MapCell { terrain: Terrain::Aisle });
-        map.set(2, 2, MapCell { terrain: Terrain::Floor { room_id: 2 } });
+        map.set(
+            0,
+            0,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 1 },
+            },
+        );
+        map.set(
+            1,
+            1,
+            MapCell {
+                terrain: Terrain::Aisle,
+            },
+        );
+        map.set(
+            2,
+            2,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 2 },
+            },
+        );
 
         let positions = map.room_positions();
         assert_eq!(positions.len(), 2);
@@ -230,9 +308,27 @@ mod tests {
     #[test]
     fn gamemap_render_char() {
         let mut map = GameMap::new(5, 5, Position::new(0, 0));
-        map.set(0, 0, MapCell { terrain: Terrain::Floor { room_id: 0 } });
-        map.set(1, 0, MapCell { terrain: Terrain::Aisle });
-        map.set(2, 0, MapCell { terrain: Terrain::Exit });
+        map.set(
+            0,
+            0,
+            MapCell {
+                terrain: Terrain::Floor { room_id: 0 },
+            },
+        );
+        map.set(
+            1,
+            0,
+            MapCell {
+                terrain: Terrain::Aisle,
+            },
+        );
+        map.set(
+            2,
+            0,
+            MapCell {
+                terrain: Terrain::Exit,
+            },
+        );
 
         assert_eq!(map.render_char(&Position::new(0, 0)), '.');
         assert_eq!(map.render_char(&Position::new(1, 0)), '-');

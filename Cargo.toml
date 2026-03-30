@@ -25,4 +25,6 @@ path = "src/test_map.rs"
 [dependencies]
 rand = "0.8"
 crossterm = "0.28"
+serde = { version = "1", features = ["derive"] }
+ron = "0.12"
 

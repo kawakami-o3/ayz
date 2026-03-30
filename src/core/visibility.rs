@@ -67,7 +67,10 @@ impl Visibility {
                     }
                     let adj = room_pos.plus(&Position::new(dx, dy));
                     if let Some(cell) = map.get(&adj) {
-                        if matches!(cell.terrain, crate::map::cell::Terrain::Aisle | crate::map::cell::Terrain::Exit) {
+                        if matches!(
+                            cell.terrain,
+                            crate::map::cell::Terrain::Aisle | crate::map::cell::Terrain::Exit
+                        ) {
                             self.visible.insert(adj);
                         }
                     }
@@ -113,19 +116,43 @@ mod tests {
         // Room 1
         for y in 1..=3 {
             for x in 1..=3 {
-                map.set(x, y, MapCell { terrain: Terrain::Floor { room_id: 1 } });
+                map.set(
+                    x,
+                    y,
+                    MapCell {
+                        terrain: Terrain::Floor { room_id: 1 },
+                    },
+                );
             }
         }
         // Aisle connecting rooms
-        map.set(4, 2, MapCell { terrain: Terrain::Aisle });
+        map.set(
+            4,
+            2,
+            MapCell {
+                terrain: Terrain::Aisle,
+            },
+        );
         // Room 2
         for y in 1..=3 {
             for x in 5..=7 {
-                map.set(x, y, MapCell { terrain: Terrain::Floor { room_id: 2 } });
+                map.set(
+                    x,
+                    y,
+                    MapCell {
+                        terrain: Terrain::Floor { room_id: 2 },
+                    },
+                );
             }
         }
         // Exit
-        map.set(6, 2, MapCell { terrain: Terrain::Exit });
+        map.set(
+            6,
+            2,
+            MapCell {
+                terrain: Terrain::Exit,
+            },
+        );
         map
     }
 
@@ -148,8 +175,12 @@ mod tests {
         // All tiles of room 1 should be visible
         for y in 1..=3 {
             for x in 1..=3 {
-                assert!(vis.is_visible(&Position::new(x, y)),
-                    "Room 1 tile ({},{}) should be visible", x, y);
+                assert!(
+                    vis.is_visible(&Position::new(x, y)),
+                    "Room 1 tile ({},{}) should be visible",
+                    x,
+                    y
+                );
             }
         }
         // Room 2 tiles should NOT be visible
@@ -165,8 +196,10 @@ mod tests {
         vis.update(&player_pos, &map);
 
         // Aisle at (4,2) is adjacent to room 1 tile (3,2)
-        assert!(vis.is_visible(&Position::new(4, 2)),
-            "Aisle adjacent to room should be visible");
+        assert!(
+            vis.is_visible(&Position::new(4, 2)),
+            "Aisle adjacent to room should be visible"
+        );
     }
 
     #[test]
@@ -181,8 +214,12 @@ mod tests {
         for dy in -1..=1 {
             for dx in -1..=1 {
                 let pos = Position::new(4 + dx, 2 + dy);
-                assert!(vis.is_visible(&pos),
-                    "({},{}) should be visible from corridor", pos.x, pos.y);
+                assert!(
+                    vis.is_visible(&pos),
+                    "({},{}) should be visible from corridor",
+                    pos.x,
+                    pos.y
+                );
             }
         }
     }
@@ -199,7 +236,7 @@ mod tests {
         assert!(vis.is_visible(&Position::new(1, 1))); // room 1
         assert!(vis.is_visible(&Position::new(4, 2))); // aisle
         assert!(vis.is_visible(&Position::new(5, 1))); // room 2
-        // Walls should NOT be visible
+                                                       // Walls should NOT be visible
         assert!(!vis.is_visible(&Position::new(0, 0)));
     }
 

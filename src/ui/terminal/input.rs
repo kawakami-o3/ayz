@@ -21,18 +21,10 @@ impl InputHandler for TerminalInput {
                 Event::Key(key) if key.kind == KeyEventKind::Press => {
                     let cmd = match key.code {
                         KeyCode::Char('q') => GameCommand::Quit,
-                        KeyCode::Char('h') | KeyCode::Left => {
-                            GameCommand::Move(Direction::Left)
-                        }
-                        KeyCode::Char('j') | KeyCode::Down => {
-                            GameCommand::Move(Direction::Down)
-                        }
-                        KeyCode::Char('k') | KeyCode::Up => {
-                            GameCommand::Move(Direction::Up)
-                        }
-                        KeyCode::Char('l') | KeyCode::Right => {
-                            GameCommand::Move(Direction::Right)
-                        }
+                        KeyCode::Char('h') | KeyCode::Left => GameCommand::Move(Direction::Left),
+                        KeyCode::Char('j') | KeyCode::Down => GameCommand::Move(Direction::Down),
+                        KeyCode::Char('k') | KeyCode::Up => GameCommand::Move(Direction::Up),
+                        KeyCode::Char('l') | KeyCode::Right => GameCommand::Move(Direction::Right),
                         KeyCode::Char('y') => GameCommand::Move(Direction::UpLeft),
                         KeyCode::Char('u') => GameCommand::Move(Direction::UpRight),
                         KeyCode::Char('n') => GameCommand::Move(Direction::DownLeft),

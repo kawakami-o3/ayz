@@ -1,0 +1,38 @@
+{
+    "wooden_sword": (
+        name: "木の剣",
+        symbol: ')',
+        category: Weapon,
+        base_value: 3,
+    ),
+    "iron_sword": (
+        name: "鉄の剣",
+        symbol: ')',
+        category: Weapon,
+        base_value: 6,
+    ),
+    "steel_sword": (
+        name: "鋼の剣",
+        symbol: ')',
+        category: Weapon,
+        base_value: 10,
+    ),
+    "wooden_shield": (
+        name: "木の盾",
+        symbol: '[',
+        category: Shield,
+        base_value: 3,
+    ),
+    "iron_shield": (
+        name: "鉄の盾",
+        symbol: '[',
+        category: Shield,
+        base_value: 5,
+    ),
+    "steel_shield": (
+        name: "鋼の盾",
+        symbol: '[',
+        category: Shield,
+        base_value: 9,
+    ),
+}

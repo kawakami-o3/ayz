@@ -33,18 +33,26 @@ where
                 break;
             }
 
-            let events = self.state.process_turn(command)
+            let events = self
+                .state
+                .process_turn(command)
                 .expect("invalid game command");
 
             // Handle inventory request
-            if events.iter().any(|e| matches!(e, GameEvent::RequestInventory)) {
+            if events
+                .iter()
+                .any(|e| matches!(e, GameEvent::RequestInventory))
+            {
                 self.handle_inventory()?;
                 self.renderer.render(&self.state)?;
                 continue;
             }
 
             // Handle throw inventory request
-            if events.iter().any(|e| matches!(e, GameEvent::RequestThrowInventory)) {
+            if events
+                .iter()
+                .any(|e| matches!(e, GameEvent::RequestThrowInventory))
+            {
                 self.handle_throw_inventory()?;
                 self.renderer.render(&self.state)?;
                 continue;
@@ -98,7 +106,9 @@ where
                     _ => GameCommand::UseItem(idx),
                 };
 
-                let events = self.state.process_turn(cmd)
+                let events = self
+                    .state
+                    .process_turn(cmd)
                     .expect("invalid inventory index");
                 for event in &events {
                     if let Some(msg) = event_to_message(event) {
@@ -123,7 +133,9 @@ where
 
         if let Some(InventoryAction::Throw(idx)) = action {
             if idx < self.state.player.inventory.len() {
-                let events = self.state.process_turn(GameCommand::ThrowItem(idx))
+                let events = self
+                    .state
+                    .process_turn(GameCommand::ThrowItem(idx))
                     .expect("invalid inventory index");
                 for event in &events {
                     if let Some(msg) = event_to_message(event) {
@@ -139,9 +151,10 @@ where
 
 fn event_to_message(event: &GameEvent) -> Option<String> {
     match event {
-        GameEvent::PlayerAttacked { target_name, damage } => {
-            Some(format!("{} に {} ダメージを与えた", target_name, damage))
-        }
+        GameEvent::PlayerAttacked {
+            target_name,
+            damage,
+        } => Some(format!("{} に {} ダメージを与えた", target_name, damage)),
         GameEvent::MonsterDefeated { name, exp } => {
             Some(format!("{} を倒した！ 経験値 {} 獲得", name, exp))
         }
@@ -155,30 +168,16 @@ fn event_to_message(event: &GameEvent) -> Option<String> {
                 None
             }
         }
-        GameEvent::ItemPickedUp { name } => {
-            Some(format!("{} を拾った", name))
-        }
+        GameEvent::ItemPickedUp { name } => Some(format!("{} を拾った", name)),
         GameEvent::ItemUsed { name, effect_desc } => {
             Some(format!("{} を使った。{}", name, effect_desc))
         }
-        GameEvent::EquipmentPickedUp { name } => {
-            Some(format!("{} を拾った", name))
-        }
-        GameEvent::Equipped { name } => {
-            Some(format!("{} を装備した", name))
-        }
-        GameEvent::InventoryFull => {
-            Some(String::from("持ち物がいっぱいだ"))
-        }
-        GameEvent::Starving => {
-            Some(String::from("お腹が空いて力が出ない... HPが減少している"))
-        }
-        GameEvent::LevelUp { new_level } => {
-            Some(format!("レベルが {} に上がった！", new_level))
-        }
-        GameEvent::FloorAdvance { new_floor } => {
-            Some(format!("{}階に降りた", new_floor))
-        }
+        GameEvent::EquipmentPickedUp { name } => Some(format!("{} を拾った", name)),
+        GameEvent::Equipped { name } => Some(format!("{} を装備した", name)),
+        GameEvent::InventoryFull => Some(String::from("持ち物がいっぱいだ")),
+        GameEvent::Starving => Some(String::from("お腹が空いて力が出ない... HPが減少している")),
+        GameEvent::LevelUp { new_level } => Some(format!("レベルが {} に上がった！", new_level)),
+        GameEvent::FloorAdvance { new_floor } => Some(format!("{}階に降りた", new_floor)),
         GameEvent::ItemThrown { name, result_desc } => {
             Some(format!("{}を投げた。{}", name, result_desc))
         }

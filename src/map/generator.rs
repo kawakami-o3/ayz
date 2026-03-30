@@ -1,12 +1,8 @@
 use rand::prelude::*;
 
-use crate::core::types::Position;
 use super::cell::{GameMap, MapCell, Terrain};
-
-const MIN_ROOM_SIZE: usize = 3;
-const MIN_AISLE_SIZE: usize = 2;
-const MIN_CUT_SIZE: usize = 2 * (MIN_ROOM_SIZE + MIN_AISLE_SIZE * 2);
-const CUT_TRIAL: usize = 9;
+use crate::core::master_data::MapData;
+use crate::core::types::Position;
 
 #[derive(Clone, Debug)]
 struct Point {
@@ -83,9 +79,7 @@ impl Area {
             CutType::Horizontal => {
                 !(self.y > (target.y + target.h) || target.y > (self.y + self.h))
             }
-            CutType::Vertical => {
-                !(self.x > (target.x + target.w) || target.x > (self.x + self.w))
-            }
+            CutType::Vertical => !(self.x > (target.x + target.w) || target.x > (self.x + self.w)),
         }
     }
 }
@@ -94,11 +88,11 @@ fn calc_weight(a: &Area) -> usize {
     a.w * a.h
 }
 
-fn choose(areas: &[Area]) -> usize {
+fn choose(areas: &[Area], min_cut_size: usize) -> usize {
     let mut rnd = thread_rng();
     let mut total_weight = 0;
     for a in areas {
-        if a.w >= MIN_CUT_SIZE || a.h >= MIN_CUT_SIZE {
+        if a.w >= min_cut_size || a.h >= min_cut_size {
             total_weight += calc_weight(a);
         }
     }
@@ -106,7 +100,7 @@ fn choose(areas: &[Area]) -> usize {
 
     let mut sum = 0;
     for (i, a) in areas.iter().enumerate() {
-        if a.w >= MIN_CUT_SIZE || a.h >= MIN_CUT_SIZE {
+        if a.w >= min_cut_size || a.h >= min_cut_size {
             sum += calc_weight(a);
             if target < sum {
                 return i;
@@ -126,23 +120,23 @@ fn calc_cut_size(size: usize) -> usize {
     size / 2
 }
 
-fn cut_areas(areas: &mut Vec<Area>) {
+fn cut_areas(areas: &mut Vec<Area>, cut_trial: usize, min_cut_size: usize) {
     let mut rnd = thread_rng();
 
-    for _i in 0..CUT_TRIAL {
-        let idx = choose(areas);
+    for _i in 0..cut_trial {
+        let idx = choose(areas, min_cut_size);
 
-        if areas[idx].w < MIN_CUT_SIZE && areas[idx].h < MIN_CUT_SIZE {
+        if areas[idx].w < min_cut_size && areas[idx].h < min_cut_size {
             continue;
         }
 
         let mut base = areas[idx].clone();
 
         let mut cut_type_list = Vec::new();
-        if base.w >= MIN_CUT_SIZE {
+        if base.w >= min_cut_size {
             cut_type_list.push(CutType::Vertical);
         }
-        if base.h >= MIN_CUT_SIZE {
+        if base.h >= min_cut_size {
             cut_type_list.push(CutType::Horizontal);
         }
         let cut_type = &cut_type_list[rnd.gen_range(0..cut_type_list.len())];
@@ -291,19 +285,25 @@ fn cut_areas(areas: &mut Vec<Area>) {
     }
 }
 
-fn fix_room_size(areas: &mut Vec<Area>) {
+fn fix_room_size(areas: &mut Vec<Area>, min_room_size: usize, min_aisle_size: usize) {
     let mut rnd = thread_rng();
     for a in areas {
-        a.room.w = rnd.gen_range(MIN_ROOM_SIZE..a.w - 2 * MIN_AISLE_SIZE);
-        a.room.h = rnd.gen_range(MIN_ROOM_SIZE..a.h - 2 * MIN_AISLE_SIZE);
-        a.room.x = rnd.gen_range(a.x + MIN_AISLE_SIZE..a.x + a.w - a.room.w - MIN_AISLE_SIZE);
-        a.room.y = rnd.gen_range(a.y + MIN_AISLE_SIZE..a.y + a.h - a.room.h - MIN_AISLE_SIZE);
+        a.room.w = rnd.gen_range(min_room_size..a.w - 2 * min_aisle_size);
+        a.room.h = rnd.gen_range(min_room_size..a.h - 2 * min_aisle_size);
+        a.room.x = rnd.gen_range(a.x + min_aisle_size..a.x + a.w - a.room.w - min_aisle_size);
+        a.room.y = rnd.gen_range(a.y + min_aisle_size..a.y + a.h - a.room.h - min_aisle_size);
     }
 }
 
-fn generate_rooms(areas: &mut Vec<Area>) {
-    cut_areas(areas);
-    fix_room_size(areas);
+fn generate_rooms(
+    areas: &mut Vec<Area>,
+    cut_trial: usize,
+    min_cut_size: usize,
+    min_room_size: usize,
+    min_aisle_size: usize,
+) {
+    cut_areas(areas, cut_trial, min_cut_size);
+    fix_room_size(areas, min_room_size, min_aisle_size);
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
@@ -392,7 +392,7 @@ fn create_aisle_points(a: &Room, b: &Room, link: LinkType) -> Vec<Point> {
     v
 }
 
-fn create_aisles(areas: &[Area]) -> Vec<Point> {
+fn create_aisles(areas: &[Area], max_random_aisles: usize) -> Vec<Point> {
     let mut rnd = thread_rng();
     let mut aisles = Vec::new();
 
@@ -463,7 +463,7 @@ fn create_aisles(areas: &[Area]) -> Vec<Point> {
     }
 
     if !rest.is_empty() {
-        let mut count = rnd.gen_range(0..usize::min(6, rest.len()));
+        let mut count = rnd.gen_range(0..usize::min(max_random_aisles, rest.len()));
         let mut added = Vec::new();
         while count > 0 {
             let i = rnd.gen_range(0..rest.len());
@@ -487,9 +487,10 @@ fn create_aisles(areas: &[Area]) -> Vec<Point> {
     v
 }
 
-pub fn generate() -> GameMap {
-    let height = 50;
-    let width = 100;
+pub fn generate(params: &MapData) -> GameMap {
+    let height = params.height;
+    let width = params.width;
+    let min_cut_size = 2 * (params.min_room_size + params.min_aisle_size * 2);
 
     let mut areas = Vec::new();
     let mut area = Area::new();
@@ -497,8 +498,14 @@ pub fn generate() -> GameMap {
     area.w = width;
     areas.push(area);
 
-    generate_rooms(&mut areas);
-    let aisles = create_aisles(&areas);
+    generate_rooms(
+        &mut areas,
+        params.cut_trial,
+        min_cut_size,
+        params.min_room_size,
+        params.min_aisle_size,
+    );
+    let aisles = create_aisles(&areas, params.max_random_aisles);
 
     let mut rng = thread_rng();
     let room = &areas[rng.gen_range(0..areas.len())].room;
@@ -516,21 +523,35 @@ pub fn generate() -> GameMap {
             for ix in 0..a.room.w {
                 let x = a.room.x + ix;
                 let y = a.room.y + iy;
-                map.set(x, y, MapCell { terrain: Terrain::Floor { room_id } });
+                map.set(
+                    x,
+                    y,
+                    MapCell {
+                        terrain: Terrain::Floor { room_id },
+                    },
+                );
             }
         }
     }
 
     // Fill aisles
     for p in &aisles {
-        map.set(p.x, p.y, MapCell { terrain: Terrain::Aisle });
+        map.set(
+            p.x,
+            p.y,
+            MapCell {
+                terrain: Terrain::Aisle,
+            },
+        );
     }
 
     // Set exit
     map.set(
         exit_pos.x as usize,
         exit_pos.y as usize,
-        MapCell { terrain: Terrain::Exit },
+        MapCell {
+            terrain: Terrain::Exit,
+        },
     );
 
     map
@@ -540,49 +561,71 @@ pub fn generate() -> GameMap {
 mod tests {
     use super::*;
 
+    fn test_map_data() -> MapData {
+        MapData {
+            width: 100,
+            height: 50,
+            min_room_size: 3,
+            min_aisle_size: 2,
+            cut_trial: 9,
+            max_random_aisles: 6,
+            max_floor: 10,
+        }
+    }
+
     #[test]
     fn generate_returns_correct_dimensions() {
-        let map = generate();
+        let params = test_map_data();
+        let map = generate(&params);
         assert_eq!(map.width, 100);
         assert_eq!(map.height, 50);
     }
 
     #[test]
     fn generate_has_exit() {
-        let map = generate();
+        let params = test_map_data();
+        let map = generate(&params);
         assert!(map.is_exit(&map.exit_pos));
     }
 
     #[test]
     fn generate_has_walkable_tiles() {
-        let map = generate();
+        let params = test_map_data();
+        let map = generate(&params);
         let room_positions = map.room_positions();
-        assert!(!room_positions.is_empty(), "Map must have at least one room tile");
+        assert!(
+            !room_positions.is_empty(),
+            "Map must have at least one room tile"
+        );
     }
 
     #[test]
     fn generate_exit_is_walkable_position() {
-        let map = generate();
+        let params = test_map_data();
+        let map = generate(&params);
         let exit = map.exit_pos;
-        // Exit should be within map bounds
         assert!(exit.x >= 0 && exit.x < map.width as i32);
         assert!(exit.y >= 0 && exit.y < map.height as i32);
     }
 
     #[test]
     fn generate_multiple_rooms() {
-        // Run generation a few times to verify we get multiple rooms
+        let params = test_map_data();
         for _ in 0..3 {
-            let map = generate();
+            let map = generate(&params);
             let positions = map.room_positions();
-            // BSP should produce multiple rooms with many floor tiles
-            assert!(positions.len() > 20, "Expected many room tiles, got {}", positions.len());
+            assert!(
+                positions.len() > 20,
+                "Expected many room tiles, got {}",
+                positions.len()
+            );
         }
     }
 
     #[test]
     fn generate_has_aisles() {
-        let map = generate();
+        let params = test_map_data();
+        let map = generate(&params);
         let mut aisle_count = 0;
         for y in 0..map.height {
             for x in 0..map.width {
