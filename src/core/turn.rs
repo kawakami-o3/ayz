@@ -3,6 +3,7 @@ use super::types::{Direction, Position};
 #[derive(Debug, Clone)]
 pub enum GameCommand {
     Move(Direction),
+    Turn(Direction),    // change facing direction without moving (no turn consumed)
     UseItem(usize),     // inventory index
     UseStaff(usize),    // inventory index (staff item)
     EquipWeapon(usize), // inventory index (weapon item)
