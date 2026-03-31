@@ -292,6 +292,10 @@ impl GameState {
                 }
                 self.throw_item(idx, &mut events);
             }
+            GameCommand::Turn(dir) => {
+                self.player.direction = dir;
+                turn_consumed = false;
+            }
             GameCommand::Wait => {}
             GameCommand::OpenInventory => {
                 events.push(GameEvent::RequestInventory);
