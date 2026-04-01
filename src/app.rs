@@ -181,6 +181,10 @@ fn event_to_message(event: &GameEvent) -> Option<String> {
         GameEvent::ItemThrown { name, result_desc } => {
             Some(format!("{}を投げた。{}", name, result_desc))
         }
+        GameEvent::PlayerHypnotized {
+            monster_name,
+            action_desc,
+        } => Some(format!("{}に催眠をかけられた！{}", monster_name, action_desc)),
         GameEvent::Message(msg) => Some(msg.clone()),
         _ => None,
     }

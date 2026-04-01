@@ -1,6 +1,6 @@
 use super::master_data::{
     AiTypeDef, EquipCategoryDef, EquipmentDef, ItemCategoryDef, ItemDef, ItemEffectDef,
-    MonsterStatsDef, PlayerData,
+    MonsterStatsDef, PlayerData, SpecialAbilityAction, SpecialAbilityTrigger,
 };
 use super::types::{Direction, Position};
 
@@ -241,6 +241,11 @@ pub enum AiType {
     Ranged,
 }
 
+#[derive(Clone, Debug)]
+pub enum SpecialAbility {
+    Hypnosis { rate: f64 },
+}
+
 pub struct Monster {
     pub name: String,
     pub symbol: char,
@@ -251,6 +256,7 @@ pub struct Monster {
     pub exp: i32,
     pub pos: Position,
     pub ai_type: AiType,
+    pub special_abilities: Vec<SpecialAbility>,
     pub status: StatusEffects,
 }
 
@@ -269,6 +275,15 @@ impl Monster {
                 AiTypeDef::Standard => AiType::Standard,
                 AiTypeDef::Ranged => AiType::Ranged,
             },
+            special_abilities: def
+                .special_abilities
+                .iter()
+                .filter_map(|a| match (&a.trigger, &a.action) {
+                    (SpecialAbilityTrigger::Adjacent, SpecialAbilityAction::Hypnosis) => {
+                        Some(SpecialAbility::Hypnosis { rate: a.rate })
+                    }
+                })
+                .collect(),
             status: StatusEffects::default(),
         }
     }
@@ -328,6 +343,7 @@ mod tests {
             defense,
             exp,
             ai_type: AiTypeDef::Standard,
+            special_abilities: vec![],
         }
     }
 

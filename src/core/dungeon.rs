@@ -731,11 +731,17 @@ impl GameState {
                 continue;
             }
 
-            // Check if adjacent to player -> attack
+            // Check if adjacent to player -> special ability or attack
             if (monster_pos.x - self.player.pos.x).abs() <= 1
                 && (monster_pos.y - self.player.pos.y).abs() <= 1
                 && monster_pos != self.player.pos
             {
+                if self.try_hypnosis(i, events) {
+                    if self.player.hp <= 0 {
+                        return;
+                    }
+                    continue;
+                }
                 let damage = std::cmp::max(min_damage, self.monsters[i].attack - defense);
                 self.player.hp -= damage;
                 let name = self.monsters[i].name.clone();
@@ -856,6 +862,144 @@ impl GameState {
                 break;
             }
         }
+    }
+
+    fn try_hypnosis(&mut self, monster_idx: usize, events: &mut Vec<GameEvent>) -> bool {
+        // Check if this monster has Hypnosis ability
+        let hypnosis_rate = self.monsters[monster_idx]
+            .special_abilities
+            .iter()
+            .find_map(|a| match a {
+                SpecialAbility::Hypnosis { rate } => Some(*rate),
+            });
+
+        let rate = match hypnosis_rate {
+            Some(r) => r,
+            None => return false,
+        };
+
+        let mut rng = thread_rng();
+        if rng.gen::<f64>() >= rate {
+            return false;
+        }
+
+        let monster_name = self.monsters[monster_idx].name.clone();
+
+        // Build list of possible forced actions
+        #[derive(Clone)]
+        enum HypnosisAction {
+            UseItem(usize),
+            ThrowItem(usize),
+            SwingWeapon,
+            UnequipWeapon,
+            UnequipShield,
+        }
+
+        let mut actions: Vec<HypnosisAction> = Vec::new();
+
+        // Usable items (Herb, Food, Scroll)
+        for (i, item) in self.player.inventory.iter().enumerate() {
+            match item.category {
+                ItemCategory::Herb | ItemCategory::Food | ItemCategory::Scroll => {
+                    actions.push(HypnosisAction::UseItem(i));
+                }
+                _ => {}
+            }
+        }
+
+        // Throwable items (any item in inventory)
+        for i in 0..self.player.inventory.len() {
+            actions.push(HypnosisAction::ThrowItem(i));
+        }
+
+        // Swing weapon in random direction (always available)
+        actions.push(HypnosisAction::SwingWeapon);
+
+        // Unequip
+        if self.player.weapon.is_some() {
+            actions.push(HypnosisAction::UnequipWeapon);
+        }
+        if self.player.shield.is_some() {
+            actions.push(HypnosisAction::UnequipShield);
+        }
+
+        let action = actions[rng.gen_range(0..actions.len())].clone();
+
+        let action_desc = match action {
+            HypnosisAction::UseItem(idx) => {
+                let item_name = self.player.inventory[idx].name.clone();
+                self.use_item(idx, events);
+                format!("{}を使わされた！", item_name)
+            }
+            HypnosisAction::ThrowItem(idx) => {
+                let item_name = self.player.inventory[idx].name.clone();
+                // Set random direction for throw
+                let dirs = Direction::all();
+                let dir = dirs[rng.gen_range(0..dirs.len())];
+                self.player.direction = dir;
+                self.throw_item(idx, events);
+                format!("{}を投げさせられた！", item_name)
+            }
+            HypnosisAction::SwingWeapon => {
+                let dirs = Direction::all();
+                let dir = dirs[rng.gen_range(0..dirs.len())];
+                let target = self.player.pos.plus(&dir.to_offset());
+                if let Some(mi) = self.monster_at(&target) {
+                    let attack = self.player.effective_attack();
+                    let damage = std::cmp::max(
+                        self.data.balance.min_damage,
+                        attack - self.monsters[mi].defense,
+                    );
+                    self.monsters[mi].hp -= damage;
+                    if self.monsters[mi].status.paralyzed {
+                        self.monsters[mi].status.paralyzed = false;
+                    }
+                    let target_name = self.monsters[mi].name.clone();
+                    events.push(GameEvent::PlayerAttacked {
+                        target_name: target_name.clone(),
+                        damage,
+                    });
+                    if self.monsters[mi].hp <= 0 {
+                        let exp = self.monsters[mi].exp;
+                        self.monsters.remove(mi);
+                        events.push(GameEvent::MonsterDefeated {
+                            name: target_name,
+                            exp,
+                        });
+                        self.player.exp += exp;
+                        self.player.kill_count += 1;
+                        self.check_level_up(events);
+                    }
+                    "ランダムな方向に攻撃した！".to_string()
+                } else {
+                    "空振りした！".to_string()
+                }
+            }
+            HypnosisAction::UnequipWeapon => {
+                if let Some(weapon) = self.player.weapon.take() {
+                    let name = weapon.display_name();
+                    self.player.inventory.push(equipment_to_item(&weapon));
+                    format!("{}を外させられた！", name)
+                } else {
+                    "空振りした！".to_string()
+                }
+            }
+            HypnosisAction::UnequipShield => {
+                if let Some(shield) = self.player.shield.take() {
+                    let name = shield.display_name();
+                    self.player.inventory.push(equipment_to_item(&shield));
+                    format!("{}を外させられた！", name)
+                } else {
+                    "空振りした！".to_string()
+                }
+            }
+        };
+
+        events.push(GameEvent::PlayerHypnotized {
+            monster_name,
+            action_desc,
+        });
+        true
     }
 
     pub fn is_game_over(&self) -> bool {
@@ -1082,6 +1226,7 @@ mod tests {
                 defense: 3,
                 exp: 4,
                 ai_type: AiTypeDef::Standard,
+                special_abilities: vec![],
             },
         );
         monsters.insert(
@@ -1094,6 +1239,7 @@ mod tests {
                 defense: 4,
                 exp: 8,
                 ai_type: AiTypeDef::Standard,
+                special_abilities: vec![],
             },
         );
         monsters.insert(
@@ -1106,6 +1252,7 @@ mod tests {
                 defense: 5,
                 exp: 10,
                 ai_type: AiTypeDef::Standard,
+                special_abilities: vec![],
             },
         );
         monsters.insert(
@@ -1118,6 +1265,7 @@ mod tests {
                 defense: 6,
                 exp: 15,
                 ai_type: AiTypeDef::Standard,
+                special_abilities: vec![],
             },
         );
         monsters.insert(
@@ -1130,6 +1278,11 @@ mod tests {
                 defense: 8,
                 exp: 18,
                 ai_type: AiTypeDef::Standard,
+                special_abilities: vec![SpecialAbilityDef {
+                    trigger: SpecialAbilityTrigger::Adjacent,
+                    action: SpecialAbilityAction::Hypnosis,
+                    rate: 0.5,
+                }],
             },
         );
         monsters.insert(
@@ -1142,6 +1295,7 @@ mod tests {
                 defense: 15,
                 exp: 50,
                 ai_type: AiTypeDef::Standard,
+                special_abilities: vec![],
             },
         );
         monsters.insert(
@@ -1154,6 +1308,7 @@ mod tests {
                 defense: 7,
                 exp: 20,
                 ai_type: AiTypeDef::Ranged,
+                special_abilities: vec![],
             },
         );
         monsters.insert(
@@ -1166,6 +1321,7 @@ mod tests {
                 defense: 30,
                 exp: 100,
                 ai_type: AiTypeDef::Standard,
+                special_abilities: vec![],
             },
         );
 
@@ -2147,5 +2303,141 @@ mod tests {
             .any(|e| matches!(e, GameEvent::ItemThrown { .. })));
         assert_eq!(state.monsters[0].hp, 22 - 2);
         assert!(!state.monsters[0].status.paralyzed);
+    }
+
+    // --- Hypnosis (Specter) ---
+
+    fn make_specter_with_rate(data: &MasterData, pos: Position, rate: f64) -> Monster {
+        let def = data.monsters.get("specter").unwrap();
+        let mut monster = Monster::from_stats_def(def, pos);
+        monster.special_abilities = vec![SpecialAbility::Hypnosis { rate }];
+        monster
+    }
+
+    #[test]
+    fn specter_hypnosis_uses_item() {
+        // rate 1.0 guarantees hypnosis triggers
+        // Run many trials to ensure UseItem action is picked at least once
+        let mut item_used = false;
+        for _ in 0..200 {
+            let mut state = make_test_state();
+            state
+                .player
+                .inventory
+                .push(make_test_item(&state.data, "herb"));
+            state.monsters.push(make_specter_with_rate(
+                &state.data,
+                Position::new(3, 2),
+                1.0,
+            ));
+            let events = state.process_turn(GameCommand::Wait).unwrap();
+            let hypnotized = events
+                .iter()
+                .any(|e| matches!(e, GameEvent::PlayerHypnotized { .. }));
+            assert!(hypnotized, "Hypnosis should trigger with rate 1.0");
+            if state.player.inventory.is_empty() {
+                item_used = true;
+                break;
+            }
+        }
+        assert!(item_used, "UseItem action should consume the herb");
+    }
+
+    #[test]
+    fn specter_hypnosis_empty_inventory_no_equip_swings() {
+        // With empty inventory and no equipment, only SwingWeapon is available
+        let mut state = make_test_state();
+        state.monsters.push(make_specter_with_rate(
+            &state.data,
+            Position::new(3, 2),
+            1.0,
+        ));
+        state.player.inventory.clear();
+        state.player.weapon = None;
+        state.player.shield = None;
+
+        let events = state.process_turn(GameCommand::Wait).unwrap();
+        let hypnotized = events.iter().any(|e| {
+            matches!(
+                e,
+                GameEvent::PlayerHypnotized {
+                    action_desc,
+                    ..
+                } if action_desc.contains("攻撃") || action_desc.contains("空振り")
+            )
+        });
+        assert!(hypnotized, "Should swing weapon (only available action)");
+    }
+
+    #[test]
+    fn specter_hypnosis_unequip_weapon() {
+        // With weapon only: actions are SwingWeapon + UnequipWeapon
+        let mut unequipped = false;
+        for _ in 0..100 {
+            let mut state = make_test_state();
+            let weapon = make_test_equip(&state.data, "wooden_sword", 0);
+            state.player.weapon = Some(weapon);
+            state.player.inventory.clear();
+            state.player.shield = None;
+            state.monsters.push(make_specter_with_rate(
+                &state.data,
+                Position::new(3, 2),
+                1.0,
+            ));
+            let events = state.process_turn(GameCommand::Wait).unwrap();
+            assert!(events
+                .iter()
+                .any(|e| matches!(e, GameEvent::PlayerHypnotized { .. })));
+            if state.player.weapon.is_none() {
+                unequipped = true;
+                assert_eq!(state.player.inventory.len(), 1);
+                break;
+            }
+        }
+        assert!(unequipped, "UnequipWeapon should be chosen at least once");
+    }
+
+    #[test]
+    fn normal_monster_no_hypnosis() {
+        // A slime (no special abilities) should never trigger hypnosis
+        let mut state = make_test_state();
+        state.player.inventory.push(make_test_item(&state.data, "herb"));
+        state.monsters.push(make_test_monster(
+            &state.data,
+            "slime",
+            Position::new(3, 2),
+        ));
+
+        let events = state.process_turn(GameCommand::Wait).unwrap();
+        let hypnotized = events
+            .iter()
+            .any(|e| matches!(e, GameEvent::PlayerHypnotized { .. }));
+        assert!(!hypnotized, "Slime should never use hypnosis");
+        // Should have normal attack instead
+        let attacked = events
+            .iter()
+            .any(|e| matches!(e, GameEvent::MonsterAttacked { .. }));
+        assert!(attacked, "Slime should do normal attack");
+    }
+
+    #[test]
+    fn specter_hypnosis_rate_zero_does_normal_attack() {
+        let mut state = make_test_state();
+        state.player.inventory.push(make_test_item(&state.data, "herb"));
+        state.monsters.push(make_specter_with_rate(
+            &state.data,
+            Position::new(3, 2),
+            0.0, // rate 0 = never triggers
+        ));
+
+        let events = state.process_turn(GameCommand::Wait).unwrap();
+        let hypnotized = events
+            .iter()
+            .any(|e| matches!(e, GameEvent::PlayerHypnotized { .. }));
+        assert!(!hypnotized, "Rate 0.0 should never trigger hypnosis");
+        let attacked = events
+            .iter()
+            .any(|e| matches!(e, GameEvent::MonsterAttacked { .. }));
+        assert!(attacked, "Should fall back to normal attack");
     }
 }
