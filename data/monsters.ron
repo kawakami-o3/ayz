@@ -34,6 +34,9 @@
         defense: 8,
         exp: 18,
         ai_type: Standard,
+        special_abilities: [
+            (trigger: Adjacent, action: Hypnosis, rate: 0.5),
+        ],
     ),
     "golem": (
         name: "ゴーレム",

@@ -60,6 +60,23 @@ pub enum AiTypeDef {
 }
 
 #[derive(Clone, Debug, Deserialize)]
+pub enum SpecialAbilityTrigger {
+    Adjacent,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub enum SpecialAbilityAction {
+    Hypnosis,
+}
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct SpecialAbilityDef {
+    pub trigger: SpecialAbilityTrigger,
+    pub action: SpecialAbilityAction,
+    pub rate: f64,
+}
+
+#[derive(Clone, Debug, Deserialize)]
 pub struct MonsterStatsDef {
     pub name: String,
     pub symbol: char,
@@ -68,6 +85,8 @@ pub struct MonsterStatsDef {
     pub defense: i32,
     pub exp: i32,
     pub ai_type: AiTypeDef,
+    #[serde(default)]
+    pub special_abilities: Vec<SpecialAbilityDef>,
 }
 
 // --- Floor Spawn Tables ---

@@ -68,6 +68,10 @@ pub enum GameEvent {
         name: String,
         result_desc: String,
     },
+    PlayerHypnotized {
+        monster_name: String,
+        action_desc: String,
+    },
     Message(String),
     RequestInventory,
     RequestThrowInventory,
